@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/pagination";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WALLET_REFRESH_EVENT } from "@/lib/wallet-refresh";
 
 interface Transaction {
   id: string;
@@ -231,7 +232,10 @@ export const Transactions: FunctionComponent<Props> = (props) => {
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          // Every change, not just UPDATE. An inbound deposit — from the onramp
+          // or any other credit — arrives as an INSERT, so listening for
+          // updates alone left new rows invisible until the next mount.
+          event: "*",
           schema: "public",
           table: "transactions",
           filter: `profile_id=eq.${props.profile?.id}`,
@@ -240,10 +244,17 @@ export const Transactions: FunctionComponent<Props> = (props) => {
       )
       .subscribe();
 
+    // The no-webhook fallback. Realtime only fires once something has written
+    // the row, which on a local run without ngrok never happens — so a deposit
+    // reported by the onramp popup re-syncs from Circle directly instead.
+    const onRefresh = () => void updateTransactions();
+    window.addEventListener(WALLET_REFRESH_EVENT, onRefresh);
+
     updateTransactions();
 
     return () => {
       supabase.removeChannel(transactionSubscription);
+      window.removeEventListener(WALLET_REFRESH_EVENT, onRefresh);
     };
   }, []);
 

@@ -4,9 +4,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "generate-wallet": "node generate-wallet.mjs"
+    "generate-wallet": "node generate-wallet.mjs",
+    "supabase": "supabase",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:migration": "supabase migration new"
   },
   "dependencies": {
+    "@crcl-main/onramp-kit": "canary-feature-onramp-kit-sdk",
     "@circle-fin/developer-controlled-wallets": "^4.6.0",
     "@circle-fin/smart-contract-platform": "^4.3.0",
     "@circle-fin/user-controlled-wallets": "^4.5.0",

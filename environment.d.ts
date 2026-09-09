@@ -31,5 +31,8 @@ namespace NodeJS {
     GOOGLE_CLIENT_SECRET: string
     OPENAI_API_KEY: string
     OPENAI_ASSISTANT_ID: string
+    ONRAMP_KIT_KEY: string
+    ONRAMP_API_BASE_URL: string
+    NEXT_PUBLIC_ONRAMP_WIDGET_BASE_URL: string
   }
 }
