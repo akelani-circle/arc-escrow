@@ -22,6 +22,7 @@ import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
 import { createAgreementService } from "@/app/services/agreement.service";
 import { convertUSDCToContractAmount, parseAmount } from "@/lib/utils/amount";
+import { USDC_CONTRACT_ADDRESS } from "@/lib/constants";
 
 interface DepositRequest {
   circleContractId: string
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
     const circleApprovalResponse = await circleDeveloperSdk.createContractExecutionTransaction({
       abiFunctionSignature: "approve(address,uint256)",
       abiParameters: [contractAddress, contractAmount],
-      contractAddress: process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
+      contractAddress: USDC_CONTRACT_ADDRESS,
       fee: {
         type: "level",
         config: {

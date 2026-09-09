@@ -37,8 +37,6 @@ export const circleDeveloperSdk = initiateDeveloperControlledWalletsClient({
   entitySecret: process.env.CIRCLE_ENTITY_SECRET,
 });
 
-const blockchain = "ARC-TESTNET";
-
 // Makes the request to Circle's API to create the wallet
 try {
   const createdWalletSetResponse = await circleDeveloperSdk.createWalletSet({
@@ -50,7 +48,9 @@ try {
 
   const createdWalletResponse = await circleDeveloperSdk.createWallets({
     accountType: "SCA",
-    blockchains: [blockchain],
+    // Kept in step with BLOCKCHAIN in lib/constants.ts. Plain node runs this
+    // file, so it cannot import the TypeScript constant.
+    blockchains: ["ARC-TESTNET"],
     walletSetId
   });
 
@@ -68,7 +68,6 @@ try {
   // Update the environment variables
   envContent = envContent.replace(/^NEXT_PUBLIC_AGENT_WALLET_ID=.*$/m, `NEXT_PUBLIC_AGENT_WALLET_ID=${createdWallet.id}`);
   envContent = envContent.replace(/^NEXT_PUBLIC_AGENT_WALLET_ADDRESS=.*$/m, `NEXT_PUBLIC_AGENT_WALLET_ADDRESS=${createdWallet.address}`);
-  envContent = envContent.replace(/^CIRCLE_BLOCKCHAIN=.*$/m, `CIRCLE_BLOCKCHAIN=${blockchain}`);
 
   // Write the updated content back to .env.local
   fs.writeFileSync(envPath, envContent);
