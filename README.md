@@ -29,7 +29,7 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 - **[ngrok](https://ngrok.com/)** — For local webhook testing
 - Circle Developer Controlled Wallets **[API key](https://console.circle.com/signin)** and **[Entity Secret](https://developers.circle.com/wallets/dev-controlled/register-entity-secret)**
 - **[OpenAI API key](https://platform.openai.com/api-keys)** — Used for AI-powered work validation
-- Circle **Onramp Kit key** — Create one in the [Circle Developer Console](https://console.circle.com/api-keys). The kit ships from Circle's private Cloudsmith registry, so `npm install` needs `CLOUDSMITH_TOKEN` exported in your shell.
+- Circle **Onramp Kit key** — Create one in the [Circle Developer Console](https://console.circle.com/api-keys).
 
 ## Getting Started
 
@@ -38,12 +38,8 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
    ```bash
    git clone git@github.com:akelani-circle/workflow-escrow-refund-protocol.git
    cd workflow-escrow-refund-protocol
-   export CLOUDSMITH_TOKEN=<your-token>
    npm install
    ```
-
-   `.npmrc` points the `@crcl-main` scope at Circle's private registry;
-   everything else still resolves from npmjs.
 
 2. Set up environment variables:
 
