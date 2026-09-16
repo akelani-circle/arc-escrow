@@ -21,7 +21,12 @@ import type { EscrowAgreementWithDetails } from "@/types/escrow";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
-import { REFUND_PROTOCOL_BYTECODE, REFUND_PROTOCOL_ABI_JSON } from "@/lib/constants";
+import {
+  BLOCKCHAIN,
+  REFUND_PROTOCOL_ABI_JSON,
+  REFUND_PROTOCOL_BYTECODE,
+  USDC_CONTRACT_ADDRESS,
+} from "@/lib/constants";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
 //import { convertUSDCToContractAmount } from "@/lib/utils/amount";
 
@@ -100,20 +105,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.CIRCLE_BLOCKCHAIN) {
-      throw new Error("CIRCLE_BLOCKCHAIN environment variable is not set");
-    }
-
-    if (!process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS) {
-      throw new Error("NEXT_PUBLIC_USDC_CONTRACT_ADDRESS environment variable is not set");
-    }
-
     // Create contract execution transaction
     const createResponse = await circleContractSdk.deployContract({
       name: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
       description: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
       walletId: process.env.NEXT_PUBLIC_AGENT_WALLET_ID,
-      blockchain: process.env.CIRCLE_BLOCKCHAIN as Blockchain,
+      blockchain: BLOCKCHAIN as Blockchain,
       fee: {
         type: "level",
         config: {
@@ -122,7 +119,7 @@ export async function POST(req: NextRequest) {
       },
       constructorParameters: [
         process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS,
-        process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
         "EscrowProtocol", // EIP-712 name
         "1.0" // EIP-712 version
       ],

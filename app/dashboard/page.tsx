@@ -22,8 +22,7 @@ import { CreateAgreementPage } from "@/components/ui/createAgreementPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EscrowAgreements } from "@/components/escrow-agreements";
 import { WalletBalance } from "@/components/wallet-balance";
-import { RequestUsdcButton } from "@/components/request-usdc-button";
-import { USDCButton } from "@/components/usdc-button";
+import { AddMoneyButton } from "@/components/add-money-button";
 import dynamic from "next/dynamic";
 import { WalletInformationDialog } from "@/components/wallet-information-dialog";
 
@@ -70,9 +69,7 @@ export default async function ProtectedPage() {
                 </h1>
               </div>
               <div className="flex gap-2">
-                <USDCButton className="flex-1" mode="BUY" walletAddress={wallet?.wallet_address} />
-                <USDCButton className="flex-1" mode="SELL" walletAddress={wallet?.wallet_address} />
-                {process.env.NODE_ENV === "development" && <RequestUsdcButton walletAddress={wallet?.wallet_address} />}
+                <AddMoneyButton className="flex-1" />
               </div>
             </div>
           </CardContent>
