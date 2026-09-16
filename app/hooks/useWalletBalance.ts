@@ -19,7 +19,7 @@
 "use client";
 
 import type { RealtimePostgresUpdatePayload } from "@supabase/supabase-js";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useId, useRef, useState, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { toast } from "sonner";
 import { WALLET_REFRESH_EVENT } from "@/lib/wallet-refresh";
@@ -48,10 +48,17 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Every component showing a balance runs its own copy of this hook, and they
+  // all share one Supabase client. A shared channel name would hand the second
+  // copy the first one's already subscribed channel, which throws.
+  const channelId = useId();
+
   // Mirrors `balance` so the retry loop knows the figure it is trying to beat
   // without re-subscribing every time the balance moves.
   const balanceRef = useRef(balance);
-  balanceRef.current = balance;
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
 
   // Returns what it read. `setBalance` does not land until React commits, so the
   // retry loop below cannot learn the new figure from state in time.
@@ -152,7 +159,7 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
 
   useEffect(() => {
     const walletSubscription = supabase
-      .channel("wallet")
+      .channel(`wallet:${channelId}`)
       .on(
         "postgres_changes",
         {
@@ -161,14 +168,14 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
           table: "wallets",
           filter: `circle_wallet_id=eq.${walletId}`,
         },
-        payload => updateWalletBalance(payload, balance)
+        payload => updateWalletBalance(payload, balanceRef.current)
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(walletSubscription);
     };
-  }, [supabase, walletId, balance, updateWalletBalance]);
+  }, [channelId, walletId, updateWalletBalance]);
 
   return {
     balance,

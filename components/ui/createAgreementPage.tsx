@@ -19,7 +19,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/utils/supabase/client";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { Check, ChevronsUpDown } from "lucide-react";
 import {
   Card,
@@ -81,7 +81,7 @@ interface EscrowAgreement {
   depositor_wallet_id: string;
   transaction_id: string;
   status: string;
-  terms: any;
+  terms: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -101,7 +101,7 @@ export const CreateAgreementPage = () => {
   );
   const [userId, setUserId] = useState<string | null>(null);
 
-  const supabase = createClient();
+  const supabase = createSupabaseBrowserClient();
 
   useEffect(() => {
     const loadData = async () => {

@@ -18,15 +18,20 @@
 
 import { NextResponse } from "next/server";
 import mammoth from "mammoth";
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { openai } from "@/lib/utils/openAIClient";
 import { handleOpenAIError } from "@/lib/utils/openai-error-handler";
 
 // Configure accepted file types and their processors
 const FILE_PROCESSORS = {
   "application/pdf": async (buffer: Buffer) => {
-    const data = await pdf(buffer);
-    return data.text;
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      return result.text;
+    } finally {
+      await parser.destroy();
+    }
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
     async (buffer: Buffer) => {

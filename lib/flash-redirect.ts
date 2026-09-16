@@ -16,9 +16,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// This check can be removed
-// it is just for tutorial purposes
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { FLASH_COOKIE, createFlashMessage, flashCookieOptions } from "@/lib/flash-message";
 
-export const hasEnvVars =
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+/**
+ * Redirects to a path and shows the message there as a toast. Server actions only.
+ */
+export async function encodedRedirect(
+  type: "error" | "success",
+  path: string,
+  message: string
+): Promise<never> {
+  (await cookies()).set(FLASH_COOKIE, createFlashMessage(type, message), flashCookieOptions);
+  return redirect(path);
+}

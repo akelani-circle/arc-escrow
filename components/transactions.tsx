@@ -65,7 +65,7 @@ interface CircleTransaction {
 interface Props {
   wallet: Wallet;
   profile: {
-    id: any;
+    id: string;
   } | null;
 }
 
@@ -74,7 +74,7 @@ const ITEMS_PER_PAGE = 5;
 async function syncTransactions(
   supabase: SupabaseClient,
   walletId: string,
-  profileId: string,
+  profileId: string | undefined,
   circleWalletId: string
 ) {
   // 1. Fetch transactions from Circle API
@@ -105,12 +105,12 @@ async function syncTransactions(
     .eq("wallet_id", walletId);
 
   const existingTransactionIds = new Set(
-    existingTransactions?.map((t: any) => t.circle_transaction_id) || []
+    existingTransactions?.map((t: { circle_transaction_id: string }) => t.circle_transaction_id) || []
   );
 
   // 3. Filter out transactions that already exist
   const newTransactions = parsedTransactions.transactions.filter(
-    (transaction: any) => !existingTransactionIds.has(transaction.id)
+    (transaction: CircleTransaction) => !existingTransactionIds.has(transaction.id)
   );
 
   // 4. Insert new transactions into the database
@@ -159,7 +159,7 @@ async function syncTransactions(
   const uniqueTransactions =
     allTransactions?.reduce((acc, current) => {
       const existingTransaction = acc.find(
-        (item: { circle_transaction_id: any }) =>
+        (item: { circle_transaction_id: string }) =>
           item.circle_transaction_id === current.circle_transaction_id
       );
       if (!existingTransaction) {

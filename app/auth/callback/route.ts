@@ -17,6 +17,8 @@
  */
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { createUserWallet } from "@/lib/utils/create-user-wallet";
+import { FLASH_COOKIE, createFlashMessage, flashCookieOptions } from "@/lib/flash-message";
 import { NextResponse } from "next/server";
 
 const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
   const nextUrl = searchParams.get("next") ?? "/";
 
   if (code) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -61,43 +63,16 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${baseUrl}/${nextUrl}`);
       }
 
-      const createdWalletSetResponse = await fetch(`${baseUrl}/api/wallet-set`, {
-        method: "PUT",
-        body: JSON.stringify({
-          entityName: data.user.email,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const createdWalletSet = await createdWalletSetResponse.json();
-
-      const createdWalletResponse = await fetch(`${baseUrl}/api/wallet`, {
-        method: "POST",
-        body: JSON.stringify({
-          walletSetId: createdWalletSet.id,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const createdWallet = await createdWalletResponse.json();
-
-      await supabase
-        .schema("public")
-        .from("wallets")
-        .upsert({
-          profile_id: user.id,
-          circle_wallet_id: createdWallet.id,
-          wallet_type: createdWallet.custodyType,
-          wallet_set_id: createdWalletSet.id,
-          wallet_address: createdWallet.address,
-          account_type: createdWallet.accountType,
-          blockchain: createdWallet.blockchain,
-          currency: "USDC"
-        });
+      try {
+        await createUserWallet(user.id, data.user.email ?? data.user.id);
+      } catch (walletError) {
+        // Sign out so the next sign-in comes back here and tries again
+        await supabase.auth.signOut();
+        const message = walletError instanceof Error ? walletError.message : "Could not create your wallet";
+        const response = NextResponse.redirect(`${baseUrl}/sign-in`);
+        response.cookies.set(FLASH_COOKIE, createFlashMessage("error", message), flashCookieOptions);
+        return response;
+      }
 
       return NextResponse.redirect(`${baseUrl}/${nextUrl}`);
     }

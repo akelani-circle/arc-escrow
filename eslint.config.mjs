@@ -16,10 +16,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createBrowserClient } from "@supabase/ssr";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-export const createClient = () =>
-  createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  globalIgnores([".next/", "next-env.d.ts"]),
+  {
+    rules: {
+      // Several hooks load data on mount and set a loading flag first. Moving
+      // them to a data-fetching library is out of scope, so flag, don't fail.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+]);

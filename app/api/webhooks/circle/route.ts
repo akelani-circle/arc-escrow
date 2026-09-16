@@ -18,14 +18,14 @@
 
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const baseUrl = process.env.VERCEL_URL
   ? process.env.VERCEL_URL
   : "http://localhost:3000";
 
-async function updateAgreementTransaction(transactionId: string, notification: Record<string, any>) {
-  const supabase = createSupabaseServerClient();
+async function updateAgreementTransaction(transactionId: string, notification: Record<string, unknown>) {
+  const supabase = createSupabaseAdminClient();
 
   // Fetch the current status in the database to check if the update is needed
   const { data: transactionToUpdate, error: transactionError } = await supabase
@@ -143,7 +143,7 @@ async function updateAgreementTransaction(transactionId: string, notification: R
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const signature = req.headers.get("x-circle-signature");
     const keyId = req.headers.get("x-circle-key-id");
 

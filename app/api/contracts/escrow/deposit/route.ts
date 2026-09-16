@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getErrorMessage } from "@/lib/utils/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
@@ -29,7 +30,7 @@ interface DepositRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const agreementService = createAgreementService(supabase);
     const body: DepositRequest = await req.json();
 
@@ -162,12 +163,12 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error during funds deposit initialization:", error);
     return NextResponse.json(
       {
         error: "Failed to initiate funds deposit",
-        details: error.message,
+        details: getErrorMessage(error),
       },
       { status: 500 }
     );

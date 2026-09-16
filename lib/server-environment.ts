@@ -43,7 +43,7 @@ export const ENVIRONMENT: OnrampEnvironment = resolveEnvironment(
   "ONRAMP_API_BASE_URL",
 );
 
-// A kit key is bound to one environment, and a half-switched config fails
+// An API key is bound to one environment, and a half-switched config fails
 // invisibly: the widget loads from one environment, the session was minted in
 // the other, and the two silently ignore each other's messages. Refusing to
 // start is louder than debugging that.

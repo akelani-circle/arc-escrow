@@ -22,15 +22,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { API_BASE_URL, ENVIRONMENT } from "@/lib/server-environment";
 import { WIDGET_BASE_URL } from "@/lib/onramp-environment";
 
-// A kit key belongs to one environment; the other rejects it. Importing
+// An API key belongs to one environment; the other rejects it. Importing
 // server-environment has already refused to start if the two base URLs
 // disagree, so this only has to catch the key being absent outright.
-const kitKey = process.env.ONRAMP_KIT_KEY?.trim();
+const apiKey = process.env.CIRCLE_API_KEY?.trim();
 
-if (!kitKey) {
+if (!apiKey) {
   throw new Error(
-    `ONRAMP_KIT_KEY is not set. Add the ${ENVIRONMENT} kit key from the Circle ` +
-      "console, in the form KIT_KEY:<keyId>:<keySecret>.",
+    `CIRCLE_API_KEY is not set. Add the ${ENVIRONMENT} API key from the Circle ` +
+      "console, in the form <ENV>_API_KEY:<keyId>:<keySecret>.",
   );
 }
 
@@ -38,7 +38,7 @@ if (!kitKey) {
 // defaults, https://api.circle.com and https://onramp.arc.io, which is mainnet
 // and moves real money.
 const onrampServer = createOnrampServerKit({
-  apiKey: kitKey,
+  apiKey,
   baseUrl: API_BASE_URL,
   widgetBaseUrl: WIDGET_BASE_URL,
 });
@@ -49,7 +49,7 @@ const onrampServer = createOnrampServerKit({
 // wallet the session belongs to.
 export async function POST() {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     const {
       data: { user },

@@ -180,5 +180,3 @@ CREATE TRIGGER enforce_storage_structure
     FOR EACH ROW
     EXECUTE FUNCTION storage_folder_structure();
 
--- Add comment to describe migration
-COMMENT ON TABLE storage.objects IS 'Storage configuration added in migration 2. Contains bucket policies for profile pictures, agreement documents, and dispute evidence.';

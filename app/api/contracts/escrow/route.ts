@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getErrorMessage } from "@/lib/utils/utils";
 import type { Blockchain } from "@circle-fin/smart-contract-platform";
 import type { EscrowAgreementWithDetails } from "@/types/escrow";
 import { NextRequest, NextResponse } from "next/server";
@@ -35,6 +36,9 @@ interface CreateEscrowRequest {
   agentAddress: string;
   amountUSDC: number;
 }
+
+// Shape of errors thrown by the Circle SDK's HTTP client
+type HttpError = { response?: { status?: number; data?: unknown } };
 
 async function waitForTransactionStatus(id: string) {
   let attempts = 0;
@@ -60,9 +64,9 @@ async function waitForTransactionStatus(id: string) {
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error checking transaction status:", error);
-      if (error.response?.status === 404) {
+      if ((error as HttpError).response?.status === 404) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         attempts++;
         continue;
@@ -76,7 +80,7 @@ async function waitForTransactionStatus(id: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const body: CreateEscrowRequest = await req.json();
 
     // Validate request
@@ -173,12 +177,12 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating escrow:", error);
     return NextResponse.json(
       {
         error: "Failed to create escrow contract",
-        details: error.response?.data || error.message,
+        details: (error as HttpError).response?.data || getErrorMessage(error),
       },
       { status: 500 }
     );
@@ -207,12 +211,12 @@ export async function GET(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error checking transaction status:", error);
     return NextResponse.json(
       {
         error: "Failed to get transaction status",
-        details: error.message,
+        details: getErrorMessage(error),
       },
       { status: 500 }
     );

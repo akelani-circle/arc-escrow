@@ -16,8 +16,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export let assistantId = ""; // set your assistant ID here
+import { createClient } from "@supabase/supabase-js";
 
-if (assistantId === "") {
-  assistantId = process.env.OPENAI_ASSISTANT_ID || "";
+// Bypasses row level security. Server-side only, and only for writes no user is
+// allowed to make directly: creating wallets and applying Circle webhook results.
+export function createSupabaseAdminClient() {
+  if (!process.env.SUPABASE_SECRET_KEY) {
+    throw new Error("SUPABASE_SECRET_KEY is not set");
+  }
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
 }

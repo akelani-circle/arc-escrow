@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { createFileService } from "@/app/services/file.service";
 import { createAgreementService } from "@/app/services/agreement.service";
 import { CreateAgreementProps } from "@/types/agreements";
-import { createClient } from "@/lib/utils/supabase/client";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { parseAmount } from "@/lib/utils/amount";
 
 interface Amount {
@@ -50,7 +50,7 @@ export interface DocumentAnalysis {
 export const useContractUpload = (props: CreateAgreementProps) => {
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
-  const supabase = createClient();
+  const supabase = createSupabaseBrowserClient();
   const fileService = createFileService(supabase);
   const agreementService = createAgreementService(supabase);
 
