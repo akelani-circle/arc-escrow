@@ -38,12 +38,11 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 ## Prerequisites
 
 - **Node.js v22+** — Install via [nvm](https://github.com/nvm-sh/nvm)
-- **`CLOUDSMITH_TOKEN`** — The onramp kit (`@crcl-main/onramp-kit`) is published to Circle's private registry, configured in `.npmrc`. Export the token in the shell where you run `npm install`, or it fails with `E401`. The token is never committed.
+- **Registry token** — `@crcl-main/onramp-kit` comes from Circle's private registry (see `.npmrc`). Export the token variable named there before `npm install`, or it fails with `E401`. Never commit it.
 - **Docker Desktop** — Runs local Supabase. [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - **[ngrok](https://ngrok.com/)** — For local webhook testing
 - Circle Developer Controlled Wallets **[API key](https://console.circle.com/signin)** and **[Entity Secret](https://developers.circle.com/wallets/dev-controlled/register-entity-secret)**
 - **[OpenAI API key](https://platform.openai.com/api-keys)** — Used for AI-powered work validation
-- Circle **Onramp Kit key** — Create one in the [Circle Developer Console](https://console.circle.com/api-keys).
 
 ## Getting Started
 
