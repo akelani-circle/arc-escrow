@@ -17,7 +17,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { createOnrampServerKit } from "@crcl-main/onramp-kit/server";
+import { createOnrampServerKit } from "@circle-fin/onramp-kit/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { API_BASE_URL, ENVIRONMENT } from "@/lib/server-environment";
 import { WIDGET_BASE_URL } from "@/lib/onramp-environment";

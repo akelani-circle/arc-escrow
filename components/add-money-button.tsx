@@ -24,7 +24,7 @@ import {
   createOnrampKit,
   parseOnrampSession,
   type OnrampEventEnvelope,
-} from "@crcl-main/onramp-kit";
+} from "@circle-fin/onramp-kit";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
