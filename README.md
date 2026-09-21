@@ -19,9 +19,11 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
 - [How It Works](#how-it-works)
+- [Upgrading](#upgrading)
 - [Environment Variables](#environment-variables)
 - [User Accounts](#user-accounts)
 - [Available Scripts](#available-scripts)
+- [Testing](#testing)
 - [Security & Usage Model](#security--usage-model)
 
 ## Features
@@ -36,7 +38,7 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 ## Prerequisites
 
 - **Node.js v22+** — Install via [nvm](https://github.com/nvm-sh/nvm)
-- **Supabase CLI** — Install via `npm install -g supabase` or see [Supabase CLI docs](https://supabase.com/docs/guides/cli/getting-started)
+- **`CLOUDSMITH_TOKEN`** — The onramp kit (`@crcl-main/onramp-kit`) is published to Circle's private registry, configured in `.npmrc`. Export the token in the shell where you run `npm install`, or it fails with `E401`. The token is never committed.
 - **Docker Desktop** — Runs local Supabase. [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - **[ngrok](https://ngrok.com/)** — For local webhook testing
 - Circle Developer Controlled Wallets **[API key](https://console.circle.com/signin)** and **[Entity Secret](https://developers.circle.com/wallets/dev-controlled/register-entity-secret)**
@@ -72,11 +74,10 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 4. Set up the database (requires Docker Desktop installed and running):
 
    ```bash
-   npx supabase start
-   npx supabase migration up
+   npm run db:start
    ```
 
-   The output of `npx supabase start` displays the Supabase URL and API keys needed for your `.env.local`.
+   This starts Supabase in Docker and applies the migrations in `supabase/migrations`. The output shows the Supabase URL and API keys needed for your `.env.local`; run `npm run db:status` to see them again.
 
 5. Start the development server:
 
@@ -109,6 +110,31 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 - Agent wallet automatically initialized via the `generate-wallet` script
 - **Add money** opens Circle's hosted onramp in a popup via [Onramp Kit](https://developers.circle.com/), scoped to USDC on Arc. The session is minted server-side against the signed-in user's own wallet, so the browser never names the destination address
 - Real-time UI updates powered by Supabase Realtime subscriptions
+
+## Upgrading
+
+Changes that require action on an existing deployment:
+
+- **Apply the new migration** (`npm run db:start` locally, `npm run supabase -- db push` on a hosted project). It tightens what signed-in users can write:
+  - Only the **depositor** can edit an agreement's `terms`, and only before the contract is deployed. Before this, the beneficiary could rewrite the tasks the AI validates against, then "validate" any image to release the funds.
+  - Nobody can set an agreement's `status` or `circle_contract_id` directly, and a new agreement must start `INITIATED`. Only server routes change them, after checking the caller.
+  - A locked agreement cannot be deleted by a user (deleting it would orphan the escrowed funds).
+  - Users can no longer rewrite their own `transactions`, or their profile `email` (it identifies people in the recipient picker).
+- **API routes now check who is calling.** Before, `/api/wallet/*`, `/api/contracts/escrow` and `/api/contracts/analyze` had no authentication at all, so anyone could read any wallet's balance, deploy contracts from the agent wallet, or spend your OpenAI credit. All of them now require a signed-in user, and wallet reads must be for your own wallet.
+- **Each money-moving action is limited to the right party**, and to the right agreement status:
+
+  | Action | Who | Agreement must be |
+  | --- | --- | --- |
+  | Deploy the contract | depositor | `INITIATED` |
+  | Approve USDC | depositor | `OPEN` |
+  | Deposit | depositor | `OPEN` or `PENDING` |
+  | Submit work (releases funds) | beneficiary | `LOCKED` |
+  | Refund | beneficiary | `LOCKED` |
+
+  Previously the refund route would run from the beneficiary's wallet for either party, so a depositor could force a refund out from under the escrow.
+- **A failed refund now returns the agreement to `LOCKED`** (it was `OPEN`, which invited a second deposit while the first was still locked).
+- **The password-reset email** now lands on the reset form (the link carried `redirect_to` but the callback reads `next`).
+- Signed-in requests to your own API from the browser now use relative URLs.
 
 ## Environment Variables
 
@@ -179,6 +205,8 @@ Email verification is handled by the built-in [local mail server](http://127.0.0
 - `npm run build` — Create a production build
 - `npm run start` — Start the production server
 - `npm run lint` — Run ESLint
+- `npm test` — Run the unit tests (no services needed)
+- `npm run test:integration` — Run database tests against the local Supabase (`npm run db:start` first)
 - `npm run generate-wallet` — Create the agent wallet and write its ID and address to `.env.local`
 - `npm run supabase` — Run the Supabase CLI (e.g. `npm run supabase -- status`)
 - `npm run db:start` — Start local Supabase
@@ -187,10 +215,24 @@ Email verification is handled by the built-in [local mail server](http://127.0.0
 - `npm run db:reset` — Reset the local database and re-run migrations
 - `npm run db:migration` — Create a new migration (e.g. `npm run db:migration -- add_column`)
 
+## Testing
+
+- `npm test` runs the unit tests in `tests/unit`. They mock Supabase, Circle and OpenAI, so they need no credentials or Docker. They cover who may call each route (signed-out, wrong party, stranger, right party), the deploy claim, and the webhook, including real signature verification.
+- `npm run test:integration` runs `tests/integration` against the **local** Supabase stack: the row-level-security rules, exercised with real users and real sessions. It reads connection settings from `.env.local`, and creates and deletes its own users.
+
 ## Security & Usage Model
 
 This sample application:
 - Assumes testnet usage only
 - Handles secrets via environment variables
 - Verifies webhook signatures for security
+- Checks the caller's role before any action that moves funds
 - Is not intended for production use without modification
+
+Known limitations to address before any production use:
+- **The recipient picker exposes users to each other.** Any signed-in user can list every other user's name, email and wallet address (needed to choose a recipient). Production code should look recipients up by exact email on the server instead of loading everyone.
+- **Wallet details are readable by every signed-in user**, including Circle wallet ids and cached balances. Wallet reads through the API are limited to your own wallet, but the ids themselves are not secret.
+- **AI validation is the escrow's only judge of the work.** An image that convinces the model releases the funds. Treat it as a demo of the flow, not as dispute resolution; `dispute_resolutions` is not used yet.
+- **The agent wallet id is public** (`NEXT_PUBLIC_AGENT_WALLET_ID`). The id is not a credential, but the wallet pays gas for every deployment, so keep it funded modestly.
+
+See `SECURITY.md` for vulnerability reporting guidelines. Please report issues privately via Circle's bug bounty program.

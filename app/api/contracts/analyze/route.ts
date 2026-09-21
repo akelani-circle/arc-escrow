@@ -21,6 +21,9 @@ import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { openai } from "@/lib/utils/openAIClient";
 import { handleOpenAIError } from "@/lib/utils/openai-error-handler";
+import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { getAuthenticatedUser, unauthorized } from "@/lib/auth/session";
+import { FILE_CONSTANTS } from "@/lib/constants";
 
 // Configure accepted file types and their processors
 const FILE_PROCESSORS = {
@@ -72,6 +75,10 @@ const ANALYSIS_PROMPT = `
 `;
 
 export async function POST(req: Request) {
+  // Each call spends OpenAI credit and parses an uploaded file: signed-in users only.
+  const supabase = await createSupabaseServerClient();
+  if (!(await getAuthenticatedUser(supabase))) return unauthorized();
+
   if (!req.body) {
     return NextResponse.json({ error: "No body provided" }, { status: 400 });
   }
@@ -84,8 +91,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    if (file.size > FILE_CONSTANTS.MAX_SIZE_5MB) {
+      return NextResponse.json(
+        { error: "Please upload a contract smaller than 5 MB" },
+        { status: 413 }
+      );
+    }
+
     // Check if file type is supported
-    if (!(file.type in FILE_PROCESSORS)) {
+    if (!Object.hasOwn(FILE_PROCESSORS, file.type)) {
       return NextResponse.json(
         { error: "Unsupported file type. Please upload a PDF or DOCX file." },
         { status: 400 }

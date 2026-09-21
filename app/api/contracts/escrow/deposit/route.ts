@@ -22,6 +22,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
 import { createAgreementService } from "@/app/services/agreement.service";
+import { authorizeAgreementAction, setAgreementStatus } from "@/lib/auth/agreement-access";
 import { convertUSDCToContractAmount, parseAmount } from "@/lib/utils/amount";
 
 interface DepositRequest {
@@ -32,21 +33,21 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
     const agreementService = createAgreementService(supabase);
-    const body: DepositRequest = await req.json();
+    const body: DepositRequest = await req.json().catch(() => ({} as DepositRequest));
 
-    if (!body.circleContractId) {
-      return NextResponse.json(
-        { error: "Missing required circleContractId" },
-        { status: 400 }
-      );
-    }
-
-    // Gets the escrow agreement circle_contract_id
-    // This will be used to get more information about the agreement using Circle's SDK
-    const { data: contractTransaction, error: contractTransactionError } = await supabase
-      .from("escrow_agreements")
-      .select(
-        `*,
+    // Only the depositor pays into the escrow, and only from their own wallet.
+    // The agreement is PENDING once the approval has been sent, OPEN before that.
+    const access = await authorizeAgreementAction<{
+      id: string;
+      circle_contract_id: string;
+      terms: { amounts: { amount: string; for?: string }[] };
+      beneficiary_wallet: { wallet_address: string };
+      transactions: { amount: number };
+    }>(supabase, {
+      by: { circleContractId: body.circleContractId },
+      role: "depositor",
+      statuses: ["OPEN", "PENDING"],
+      select: `*,
         beneficiary_wallet:wallets!escrow_agreements_beneficiary_wallet_id_fkey (
           wallet_address
         ),
@@ -55,50 +56,10 @@ export async function POST(req: NextRequest) {
           currency,
           status,
           circle_contract_address
-        )
-        `
-      )
-      .eq("circle_contract_id", body.circleContractId)
-      .single();
-
-    if (contractTransactionError) {
-      console.error("Could not find a contract with such depositor wallet ID", contractTransactionError);
-      return NextResponse.json({ error: "Could not find a contract with such depositor wallet ID" });
-    }
-
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      console.error("User is not authenticated");
-      return NextResponse.json({ error: "User is not authenticated" }, { status: 401 });
-    }
-
-    // Gets the currently logged in user id from their auth_user_id
-    // This will be used to get the user circle_wallet_id
-    const { data: userId, error: userIdError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user?.id)
-      .single();
-
-    if (userIdError) {
-      console.error("Could not retrieve the currently logged in user id:", userIdError);
-      return NextResponse.json({ error: "Could not retrieve the currently logged in user id" }, { status: 500 })
-    }
-
-    // This will be used to get the escrow agreement circle_contract_id
-    const { data: depositorWallet, error: depositorWalletError } = await supabase
-      .from("wallets")
-      .select()
-      .eq("profile_id", userId.id)
-      .single();
-
-    if (depositorWalletError) {
-      console.error("Could not find a profile linked to the given wallet ID", depositorWalletError);
-      return NextResponse.json({ error: "Could not find a profile linked to the given wallet ID" }, { status: 500 });
-    }
+        )`,
+    });
+    if (!access.ok) return access.response;
+    const { wallet: depositorWallet, agreement: contractTransaction } = access;
 
     // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
@@ -149,10 +110,7 @@ export async function POST(req: NextRequest) {
       description: contractTransaction.terms.amounts?.[0]?.for || "Funds deposited by depositor",
     });
 
-    await supabase
-      .from("escrow_agreements")
-      .update({ status: "PENDING" })
-      .eq("circle_contract_id", contractTransaction.circle_contract_id);
+    await setAgreementStatus(contractTransaction.id, "PENDING");
 
     return NextResponse.json(
       {

@@ -79,7 +79,7 @@ async function syncTransactions(
 ) {
   // 1. Fetch transactions from Circle API
   const transactionsResponse = await fetch(
-    `${baseUrl}/api/wallet/transactions`,
+    `/api/wallet/transactions`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -171,9 +171,6 @@ async function syncTransactions(
   return uniqueTransactions;
 }
 
-const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-  ? process.env.NEXT_PUBLIC_VERCEL_URL
-  : "http://localhost:3000";
 
 const supabase = createSupabaseBrowserClient();
 

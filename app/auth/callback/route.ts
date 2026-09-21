@@ -17,20 +17,30 @@
  */
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import { createUserWallet } from "@/lib/utils/create-user-wallet";
 import { FLASH_COOKIE, createFlashMessage, flashCookieOptions } from "@/lib/flash-message";
 import { NextResponse } from "next/server";
 
-const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-  ? process.env.NEXT_PUBLIC_VERCEL_URL
-  : "http://localhost:3000";
+/**
+ * `next` comes from the query string, so only accept a path on this site.
+ * "//evil.com" and "https://evil.com" are rejected; anything odd goes home.
+ */
+function safeNextPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
+    return "/";
+  }
+  return next;
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
 
   const code = searchParams.get("code");
 
-  const nextUrl = searchParams.get("next") ?? "/";
+  // Redirect within the origin that received the request. The old base URL came from
+  // NEXT_PUBLIC_VERCEL_URL, which Vercel sets without a protocol ("app.vercel.app").
+  const nextUrl = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createSupabaseServerClient();
@@ -38,7 +48,9 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const { data: user, error: userIdError } = await supabase
+      // `email` is not writable by users (it identifies them in the recipient picker),
+      // so sync it from the verified auth user with the secret key.
+      const { data: user, error: userIdError } = await createSupabaseAdminClient()
         .from("profiles")
         .update({ email: data.user.email })
         .eq("auth_user_id", data.user.id)
@@ -60,7 +72,7 @@ export async function GET(request: Request) {
         .single();
 
       if (walletAlreadyExists) {
-        return NextResponse.redirect(`${baseUrl}/${nextUrl}`);
+        return NextResponse.redirect(new URL(nextUrl, origin));
       }
 
       try {
@@ -69,14 +81,14 @@ export async function GET(request: Request) {
         // Sign out so the next sign-in comes back here and tries again
         await supabase.auth.signOut();
         const message = walletError instanceof Error ? walletError.message : "Could not create your wallet";
-        const response = NextResponse.redirect(`${baseUrl}/sign-in`);
+        const response = NextResponse.redirect(new URL("/sign-in", origin));
         response.cookies.set(FLASH_COOKIE, createFlashMessage("error", message), flashCookieOptions);
         return response;
       }
 
-      return NextResponse.redirect(`${baseUrl}/${nextUrl}`);
+      return NextResponse.redirect(new URL(nextUrl, origin));
     }
   }
 
-  return NextResponse.redirect(`${baseUrl}/auth/auth-error`);
+  return NextResponse.redirect(new URL("/auth/auth-error", origin));
 }
