@@ -18,8 +18,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-// Bypasses row level security. Server-side only, and only for writes no user is
-// allowed to make directly: creating wallets and applying Circle webhook results.
+// Bypasses row level security. Server-side only.
 export function createSupabaseAdminClient() {
   if (!process.env.SUPABASE_SECRET_KEY) {
     throw new Error("SUPABASE_SECRET_KEY is not set");

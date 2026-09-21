@@ -16,8 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// A one-time message carried across a redirect in a short-lived cookie, so it
-// can be shown as a toast without ending up in the URL.
+// One-time message carried across a redirect in a short-lived cookie.
 export const FLASH_COOKIE = "flash";
 
 export type FlashMessage = {

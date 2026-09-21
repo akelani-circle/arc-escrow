@@ -49,7 +49,6 @@ export async function GET(
 ): Promise<NextResponse<TransactionResponse>> {
   const params = await props.params;
   try {
-    // Validate the transaction ID is a Circle's transaction IDs
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(params.id)) {

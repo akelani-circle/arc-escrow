@@ -24,15 +24,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { toast } from "sonner";
 import { WALLET_REFRESH_EVENT } from "@/lib/wallet-refresh";
 
-/**
- * How many times a refresh re-reads the balance, and how long it waits between
- * attempts.
- *
- * Circle credits the wallet a moment after the onramp reports the deposit as
- * settled, so a single read taken at that instant can still come back with the
- * old figure. Re-reading a few times covers that lag; the loop stops as soon as
- * the number moves, so the usual case is one request.
- */
+// Circle credits a moment after the onramp settles, so re-read a few times until the figure moves.
 const REFRESH_ATTEMPTS = 6;
 const REFRESH_INTERVAL_MS = 2_500;
 
@@ -48,24 +40,16 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Every component showing a balance runs its own copy of this hook, and they
-  // all share one Supabase client. A shared channel name would hand the second
-  // copy the first one's already subscribed channel, which throws.
+  // Unique channel name per hook copy: a shared name reuses an already subscribed channel and throws.
   const channelId = useId();
 
-  // Mirrors `balance` so the retry loop knows the figure it is trying to beat
-  // without re-subscribing every time the balance moves.
+  // Mirrors balance so the retry loop can compare without re-subscribing.
   const balanceRef = useRef(balance);
   useEffect(() => {
     balanceRef.current = balance;
   }, [balance]);
 
-  // Returns what it read. `setBalance` does not land until React commits, so the
-  // retry loop below cannot learn the new figure from state in time.
-  //
-  // `quiet` is for the retry loop: it re-reads several times in a row, and left
-  // to itself each pass would drop the figure back to a skeleton and re-toast
-  // the same message. A quiet read updates the number and says nothing.
+  // Returns what it read, since state only lands after commit; quiet skips the skeleton and the toast.
   const fetchBalance = useCallback(async (quiet = false): Promise<number | null> => {
     try {
       if (!quiet) setLoading(true);
@@ -96,9 +80,7 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
         return 0;
       }
 
-      // The route returns the amount as a string. Coerced here so `balance` is
-      // the number its type claims — the retry loop and the Realtime handler
-      // below both compare it numerically.
+      // The route returns a string, so coerce it and keep every comparison numeric.
       const value = Number(parsedBalance.balance);
       setBalance(value);
       return value;
@@ -112,8 +94,7 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
   }, [walletId]);
 
   const updateWalletBalance = useCallback((payload: RealtimePostgresUpdatePayload<Record<string, string>>, currentBalance: number) => {
-    // Compared as numbers: the column is text, so "20.00" and "20" are the same
-    // balance written two ways and must not read as a change.
+    // Numeric compare: the column is text, so "20.00" and "20" are the same balance.
     const nextBalance = Number(payload.new.balance);
 
     if (Number.isNaN(nextBalance) || nextBalance === currentBalance) return;
@@ -126,10 +107,7 @@ export function useWalletBalance(walletId: string): UseWalletBalanceResult {
     fetchBalance();
   }, [fetchBalance]);
 
-  // The fallback path for a deposit the webhook did not report. Re-reads the
-  // authoritative balance from Circle rather than trusting the amount the
-  // widget quoted, and keeps looking for a short while because the credit lands
-  // a beat after the deposit is called settled.
+  // Fallback for a deposit the webhook never reported; re-reads Circle for a short while.
   useEffect(() => {
     let cancelled = false;
 

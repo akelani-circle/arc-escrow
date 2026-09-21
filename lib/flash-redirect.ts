@@ -20,9 +20,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { FLASH_COOKIE, createFlashMessage, flashCookieOptions } from "@/lib/flash-message";
 
-/**
- * Redirects to a path and shows the message there as a toast. Server actions only.
- */
+// Redirects and shows the message there as a toast. Server actions only.
 export async function encodedRedirect(
   type: "error" | "success",
   path: string,

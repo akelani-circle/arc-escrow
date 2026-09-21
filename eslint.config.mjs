@@ -26,8 +26,7 @@ export default defineConfig([
   globalIgnores([".next/", "next-env.d.ts"]),
   {
     rules: {
-      // Several hooks load data on mount and set a loading flag first. Moving
-      // them to a data-fetching library is out of scope, so flag, don't fail.
+      // Hooks that load data on mount trip this rule, so warn instead of failing.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

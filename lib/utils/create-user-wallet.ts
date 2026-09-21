@@ -22,10 +22,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
 import { getErrorMessage } from "@/lib/utils/utils";
 
-/**
- * Creates a Circle wallet for a profile and saves it. Throws an error with a
- * message that is safe to show the user if any step fails.
- */
 export async function createUserWallet(profileId: string, entityName: string) {
   let walletSetId: string;
   let wallet;

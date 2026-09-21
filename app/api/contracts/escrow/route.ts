@@ -29,7 +29,6 @@ import {
   USDC_CONTRACT_ADDRESS,
 } from "@/lib/constants";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
-//import { convertUSDCToContractAmount } from "@/lib/utils/amount";
 
 interface CreateEscrowRequest {
   agreement: EscrowAgreementWithDetails;
@@ -83,7 +82,6 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const body: CreateEscrowRequest = await req.json();
 
-    // Validate request
     if (
       !body.agreement.depositor_wallet?.wallet_address ||
       !body.agreement.beneficiary_wallet?.wallet_address ||
@@ -96,7 +94,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate Ethereum addresses
     const addressRegex = /^0x[a-fA-F0-9]{40}$/;
     if (
       !addressRegex.test(body.agreement.depositor_wallet?.wallet_address) ||
@@ -109,7 +106,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create contract execution transaction
     const createResponse = await circleContractSdk.deployContract({
       name: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
       description: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
@@ -137,8 +133,7 @@ export async function POST(req: NextRequest) {
 
     console.log("Transaction created:", createResponse.data);
 
-    // Update circle_contract_id and move status to PENDING
-    // This is needed so we can find the agreement later on to deposit funds to it
+    // Store circle_contract_id so the agreement can be found when funding it.
     const { error: agreementError } = await supabase
       .from("escrow_agreements")
       .update({
@@ -151,8 +146,7 @@ export async function POST(req: NextRequest) {
       throw new Error("Failed to update Circle contract ID")
     }
 
-    // Update circle_transaction_id (is "NULL" by default on creation)
-    // This is needed so we can find the transaction later on and update it's status
+    // Store circle_transaction_id so the transaction can be found and updated later.
     const { error: transactionError } = await supabase
       .from("transactions")
       .update({ circle_transaction_id: createResponse.data.transactionId })

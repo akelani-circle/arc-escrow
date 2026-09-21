@@ -22,7 +22,6 @@ import { PDFParse } from "pdf-parse";
 import { openai } from "@/lib/utils/openAIClient";
 import { handleOpenAIError } from "@/lib/utils/openai-error-handler";
 
-// Configure accepted file types and their processors
 const FILE_PROCESSORS = {
   "application/pdf": async (buffer: Buffer) => {
     const parser = new PDFParse({ data: buffer });
@@ -84,7 +83,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Check if file type is supported
     if (!(file.type in FILE_PROCESSORS)) {
       return NextResponse.json(
         { error: "Unsupported file type. Please upload a PDF or DOCX file." },
@@ -92,11 +90,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Process file
     const buffer = Buffer.from(await file.arrayBuffer());
     const textContent = await FILE_PROCESSORS[file.type as FileType](buffer);
 
-    // Analyze with OpenAI
     let completion;
     try {
       completion = await openai.chat.completions.create({
@@ -120,7 +116,6 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error analyzing document:", error);
     
-    // Check if it's an OpenAI authentication error (might not have been caught above)
     const isAuthError = error instanceof Error && (
       error.message.includes("API key") || 
       error.message.includes("Incorrect API key") ||

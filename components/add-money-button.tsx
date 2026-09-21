@@ -35,10 +35,7 @@ type OnrampSession = ReturnType<typeof parseOnrampSession>;
 
 const SESSION_URL = "/api/onramp/session";
 
-/**
- * Mints a session for the signed-in user. The destination address is resolved
- * server-side from their wallet, so there is nothing to send.
- */
+// Mints a session; the destination is resolved server-side from the user's wallet.
 async function createSession(): Promise<OnrampSession> {
   const response = await fetch(SESSION_URL, { method: "POST" });
   const parsedResponse = await response.json();
@@ -50,25 +47,15 @@ async function createSession(): Promise<OnrampSession> {
   return parseOnrampSession(parsedResponse);
 }
 
-/**
- * Opens Circle's hosted onramp in a popup so the user can buy USDC straight
- * into their escrow wallet.
- *
- * Popup mode only, which sets two constraints this component is built around:
- * `openWindow` has to run synchronously inside the click handler or the browser
- * blocks the window, and a session is single-use. So one is always minted ahead
- * of the click, and a fresh one is minted as soon as the last is spent.
- */
+// Popup mode: openWindow must run synchronously in the click handler, and a session is single-use, so one is always minted ahead.
 export const AddMoneyButton: FunctionComponent<HTMLProps<HTMLElement>> = ({ className }) => {
   const [session, setSession] = useState<OnrampSession | null>(null);
 
-  // Lazily constructed so nothing touches `window` during SSR. The getter is
-  // synchronous, which openWindow requires.
+  // Lazy so nothing touches window during SSR, and synchronous because openWindow needs it.
   const kitRef = useRef<ReturnType<typeof createOnrampKit> | null>(null);
   const getKit = () => (kitRef.current ??= createOnrampKit({ widgetBaseUrl: WIDGET_BASE_URL }));
 
-  // Held so the popup is torn down if the dashboard unmounts with it open —
-  // the controller keeps a window `message` listener and an init timer alive.
+  // Held so the popup is torn down if the dashboard unmounts with it open.
   const widgetRef = useRef<{ close: () => void } | null>(null);
 
   const mintSession = useCallback(async () => {
@@ -88,15 +75,10 @@ export const AddMoneyButton: FunctionComponent<HTMLProps<HTMLElement>> = ({ clas
     return () => widgetRef.current?.close();
   }, [mintSession]);
 
-  // The widget reports the deposit; Circle credits the wallet. Where the Circle
-  // webhook is reachable it writes the new balance and the transaction row on
-  // its own, and Realtime carries both. This covers the case where it is not —
-  // a local run without ngrok — by asking the wallet to re-read itself.
+  // Fallback for runs the Circle webhook cannot reach: ask the wallet to re-read itself.
   const handleEvent = useCallback((envelope: OnrampEventEnvelope) => {
     if (envelope.event === ONRAMP_EVENT_TYPES.DEPOSIT_SUBMITTED) {
-      // Some deposits credit on submission and never emit a settle event of
-      // their own; the widget flags those with `settlementExpected: false`.
-      // Treating only DEPOSIT_SETTLED as done would miss them entirely.
+      // Deposits flagged settlementExpected: false never emit a settle event.
       if (envelope.payload.settlementExpected === false) {
         toast.success("Deposit complete");
         requestWalletRefresh();
@@ -113,15 +95,13 @@ export const AddMoneyButton: FunctionComponent<HTMLProps<HTMLElement>> = ({ clas
     requestWalletRefresh();
   }, []);
 
-  // Must stay synchronous up to openWindow — an `await` here hands the browser
-  // a call frame with no user gesture in it, and the popup gets blocked.
+  // Must stay synchronous up to openWindow or the browser blocks the popup.
   const addMoney = () => {
     if (!session) return;
 
     const result = getKit().openWindow({
       session,
-      // Fires when the session idles out mid-flow, and when the widget rejects
-      // the token outright. Either way the cure is a new session.
+      // The session idled out or was rejected; either way, mint a new one.
       onSessionExpired: () => {
         void mintSession();
       },

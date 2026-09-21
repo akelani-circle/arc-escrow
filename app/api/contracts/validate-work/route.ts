@@ -220,7 +220,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
       id: agreement.circle_contract_id,
     });
@@ -294,7 +293,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error validating work:", error);
     
-    // Check if it's an OpenAI authentication error
     const isAuthError = error instanceof Error && (
       error.message.includes("API key") || 
       error.message.includes("Incorrect API key") ||
