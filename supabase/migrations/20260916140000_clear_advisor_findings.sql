@@ -14,18 +14,8 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime'
-      AND schemaname = 'public'
-      AND tablename = 'transactions'
-  ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
-    RAISE NOTICE 'Added public.transactions to publication supabase_realtime';
-  ELSE
-    RAISE NOTICE 'public.transactions is already part of publication supabase_realtime';
-  END IF;
-END $$;
+-- handle_new_user only runs as the auth.users trigger, so nobody needs direct EXECUTE (lints 0028 and 0029).
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+-- Nothing looks wallets up by address (advisor lint 0005_unused_index).
+DROP INDEX IF EXISTS public.idx_wallets_address;

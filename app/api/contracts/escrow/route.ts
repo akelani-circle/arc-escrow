@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getErrorMessage } from "@/lib/utils/utils";
 import type { Blockchain } from "@circle-fin/smart-contract-platform";
 import type { EscrowAgreementWithDetails } from "@/types/escrow";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,13 +29,15 @@ import {
   USDC_CONTRACT_ADDRESS,
 } from "@/lib/constants";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
-//import { convertUSDCToContractAmount } from "@/lib/utils/amount";
 
 interface CreateEscrowRequest {
   agreement: EscrowAgreementWithDetails;
   agentAddress: string;
   amountUSDC: number;
 }
+
+// Shape of errors thrown by the Circle SDK's HTTP client
+type HttpError = { response?: { status?: number; data?: unknown } };
 
 async function waitForTransactionStatus(id: string) {
   let attempts = 0;
@@ -60,9 +63,9 @@ async function waitForTransactionStatus(id: string) {
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error checking transaction status:", error);
-      if (error.response?.status === 404) {
+      if ((error as HttpError).response?.status === 404) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         attempts++;
         continue;
@@ -76,10 +79,9 @@ async function waitForTransactionStatus(id: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const body: CreateEscrowRequest = await req.json();
 
-    // Validate request
     if (
       !body.agreement.depositor_wallet?.wallet_address ||
       !body.agreement.beneficiary_wallet?.wallet_address ||
@@ -92,7 +94,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate Ethereum addresses
     const addressRegex = /^0x[a-fA-F0-9]{40}$/;
     if (
       !addressRegex.test(body.agreement.depositor_wallet?.wallet_address) ||
@@ -105,7 +106,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create contract execution transaction
     const createResponse = await circleContractSdk.deployContract({
       name: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
       description: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
@@ -133,8 +133,7 @@ export async function POST(req: NextRequest) {
 
     console.log("Transaction created:", createResponse.data);
 
-    // Update circle_contract_id and move status to PENDING
-    // This is needed so we can find the agreement later on to deposit funds to it
+    // Store circle_contract_id so the agreement can be found when funding it.
     const { error: agreementError } = await supabase
       .from("escrow_agreements")
       .update({
@@ -147,8 +146,7 @@ export async function POST(req: NextRequest) {
       throw new Error("Failed to update Circle contract ID")
     }
 
-    // Update circle_transaction_id (is "NULL" by default on creation)
-    // This is needed so we can find the transaction later on and update it's status
+    // Store circle_transaction_id so the transaction can be found and updated later.
     const { error: transactionError } = await supabase
       .from("transactions")
       .update({ circle_transaction_id: createResponse.data.transactionId })
@@ -173,12 +171,12 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating escrow:", error);
     return NextResponse.json(
       {
         error: "Failed to create escrow contract",
-        details: error.response?.data || error.message,
+        details: (error as HttpError).response?.data || getErrorMessage(error),
       },
       { status: 500 }
     );
@@ -207,12 +205,12 @@ export async function GET(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error checking transaction status:", error);
     return NextResponse.json(
       {
         error: "Failed to get transaction status",
-        details: error.message,
+        details: getErrorMessage(error),
       },
       { status: 500 }
     );

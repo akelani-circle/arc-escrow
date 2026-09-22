@@ -68,7 +68,6 @@ export const EscrowAgreements = (props: EscrowListProps) => {
     }
   }
 
-  // Runs when there are changes to "DEPOSIT_REFUND" transactions
   const updateAgreementRefundStatus = useCallback(async (payload: RealtimePostgresUpdatePayload<Record<string, string>>) => {
     const { data: agreementUser, error: agreementUserError } = await supabase
       .from("profiles")
@@ -100,7 +99,6 @@ export const EscrowAgreements = (props: EscrowListProps) => {
     }
   }, [supabase, refresh]);
 
-  // Runs when there are changes to "RELEASE_PAYMENT" transactions
   const updateAgreementReleaseStatus = useCallback(async (payload: RealtimePostgresUpdatePayload<Record<string, string>>) => {
     const { data: agreementUser, error: agreementUserError } = await supabase
       .from("profiles")
@@ -134,7 +132,6 @@ export const EscrowAgreements = (props: EscrowListProps) => {
     if (fundsReleaseStatus !== "COMPLETE") return;
   }, [supabase, refresh]);
 
-  // Runs when there are changes to "DEPOSIT_APPROVAL" transactions
   const updateAgreementDepositApprovalStatus = useCallback(async (payload: RealtimePostgresUpdatePayload<Record<string, string>>) => {
     const { data: agreementUser, error: agreementUserError } = await supabase
       .from("profiles")
@@ -185,7 +182,6 @@ export const EscrowAgreements = (props: EscrowListProps) => {
     await depositFunds(agreement);
   }, [supabase]);
 
-  // Runs when there are changes to "DEPOSIT_PAYMENT" transactions
   const updateAgreementDepositStatus = useCallback(async (payload: RealtimePostgresUpdatePayload<Record<string, string>>) => {
     const { data: agreementUser, error: agreementUserError } = await supabase
       .from("profiles")
@@ -221,9 +217,7 @@ export const EscrowAgreements = (props: EscrowListProps) => {
     refresh();
   }, [supabase, refresh]);
 
-  // Runs when there are changes to "DEPLOY_CONTRACT" transactions
   const updateAgreementsDeploymentStatus = useCallback(async (payload: RealtimePostgresUpdatePayload<Record<string, string>>) => {
-    // Get the id of users involved in the agreement from their wallets
     const { data: agreementUsers, error: agreementUsersError } = await supabase
       .from("escrow_agreements")
       .select(`

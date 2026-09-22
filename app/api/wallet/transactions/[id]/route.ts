@@ -45,10 +45,10 @@ if (!process.env.CIRCLE_API_KEY || !process.env.CIRCLE_ENTITY_SECRET) {
 
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } },
+  props: { params: Promise<{ id: string }> },
 ): Promise<NextResponse<TransactionResponse>> {
+  const params = await props.params;
   try {
-    // Validate the transaction ID is a Circle's transaction IDs
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(params.id)) {
@@ -79,8 +79,7 @@ export async function GET(
         { status: 404 },
       );
     }
-    //Needs to be fixed
-    const transaction: any = {
+    const transaction: TransactionResponse["transaction"] = {
       id: response.data.transaction.id,
       amounts: response.data.transaction.amounts,
       state: response.data.transaction.state,

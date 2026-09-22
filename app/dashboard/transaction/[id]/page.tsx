@@ -20,11 +20,10 @@ const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
   ? process.env.NEXT_PUBLIC_VERCEL_URL
   : "http://localhost:3000";
 
-export default async function Transaction({
-  params,
-}: {
-  params: { id: string };
+export default async function Transaction(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const response = await fetch(
     `${baseUrl}/api/wallet/transactions/${params.id}`,
   );

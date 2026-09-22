@@ -14,18 +14,21 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
-DO $$
+-- Pin search_path on trigger functions (advisor lint 0011_function_search_path_mutable)
+ALTER FUNCTION public.update_updated_at_column() SET search_path = '';
+ALTER FUNCTION public.storage_folder_structure() SET search_path = '';
+
+CREATE OR REPLACE FUNCTION public.handle_profile_picture_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime'
-      AND schemaname = 'public'
-      AND tablename = 'transactions'
-  ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
-    RAISE NOTICE 'Added public.transactions to publication supabase_realtime';
-  ELSE
-    RAISE NOTICE 'public.transactions is already part of publication supabase_realtime';
-  END IF;
-END $$;
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        UPDATE public.profiles
+        SET avatar_url = NEW.name
+        WHERE auth_user_id::text = storage.foldername(NEW.name);
+    END IF;
+    RETURN NEW;
+END;
+$$;

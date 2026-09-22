@@ -32,7 +32,7 @@ interface ImageValidationResult {
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const agreementService = createAgreementService(supabase);
 
   const {
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     }
 
     const requirements = agreement.terms.tasks
-      .map((task: any) => typeof task === "string" ? task : task.description)
+      .map((task: string | { description?: string }) => typeof task === "string" ? task : task.description)
       .filter(Boolean)
       .map((task: string) => `- ${task}`)
       .join("\n");
@@ -220,7 +220,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
       id: agreement.circle_contract_id,
     });
@@ -269,7 +268,7 @@ export async function POST(request: Request) {
         },
       });
 
-    const amount = parseAmount((agreement.terms.amounts?.[0] as any).amount);
+    const amount = parseAmount((agreement.terms.amounts?.[0] as { amount: string }).amount);
     await agreementService.createTransaction({
       walletId: agreement.beneficiary_wallet_id,
       circleTransactionId: circleReleaseResponse.data?.id,
@@ -294,7 +293,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error validating work:", error);
     
-    // Check if it's an OpenAI authentication error
     const isAuthError = error instanceof Error && (
       error.message.includes("API key") || 
       error.message.includes("Incorrect API key") ||

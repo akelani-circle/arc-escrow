@@ -16,10 +16,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
-export const createClient = () =>
-  createBrowserClient(
+// Bypasses row level security. Server-side only.
+export function createSupabaseAdminClient() {
+  if (!process.env.SUPABASE_SECRET_KEY) {
+    throw new Error("SUPABASE_SECRET_KEY is not set");
+  }
+
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SECRET_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
   );
+}

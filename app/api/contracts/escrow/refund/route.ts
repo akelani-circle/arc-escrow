@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getErrorMessage } from "@/lib/utils/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
@@ -29,7 +30,7 @@ interface DepositRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const agreementService = createAgreementService(supabase);
     const body: DepositRequest = await req.json();
 
@@ -40,8 +41,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Gets the escrow agreement circle_contract_id
-    // This will be used to get more information about the agreement using Circle's SDK
     const { data: contractTransaction, error: contractTransactionError } = await supabase
       .from("escrow_agreements")
       .select(`
@@ -69,8 +68,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User is not authenticated" }, { status: 401 });
     }
 
-    // Gets the currently logged in user id from their auth_user_id
-    // This will be used to get the user circle_wallet_id
     const { data: userId, error: userIdError } = await supabase
       .from("profiles")
       .select("id")
@@ -82,8 +79,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not retrieve the currently logged in user id" }, { status: 500 })
     }
 
-    // Gets the currently logged in user circle_wallet_id based on their user id
-    // This will be used to get the escrow agreement circle_contract_id
     const { data: depositorWallet, error: depositorWalletError } = await supabase
       .from("wallets")
       .select()
@@ -95,7 +90,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not find a profile linked to the given wallet ID" }, { status: 500 });
     }
 
-    // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
       id: contractTransaction.circle_contract_id
     });
@@ -152,12 +146,12 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error during deposit refund:", error);
     return NextResponse.json(
       {
         error: "Failed to initiate deposit refund",
-        details: error.message,
+        details: getErrorMessage(error),
       },
       { status: 500 }
     );

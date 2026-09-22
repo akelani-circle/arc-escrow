@@ -22,34 +22,27 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { API_BASE_URL, ENVIRONMENT } from "@/lib/server-environment";
 import { WIDGET_BASE_URL } from "@/lib/onramp-environment";
 
-// A kit key belongs to one environment; the other rejects it. Importing
-// server-environment has already refused to start if the two base URLs
-// disagree, so this only has to catch the key being absent outright.
-const kitKey = process.env.ONRAMP_KIT_KEY?.trim();
+// server-environment already refuses to start on mismatched base URLs, so this only catches a missing key.
+const apiKey = process.env.CIRCLE_API_KEY?.trim();
 
-if (!kitKey) {
+if (!apiKey) {
   throw new Error(
-    `ONRAMP_KIT_KEY is not set. Add the ${ENVIRONMENT} kit key from the Circle ` +
-      "console, in the form KIT_KEY:<keyId>:<keySecret>.",
+    `CIRCLE_API_KEY is not set. Add the ${ENVIRONMENT} API key from the Circle ` +
+      "console, in the form <ENV>_API_KEY:<keyId>:<keySecret>.",
   );
 }
 
-// Both URLs are passed through verbatim. Undefined leaves the kit on its own
-// defaults, https://api.circle.com and https://onramp.arc.io, which is mainnet
-// and moves real money.
+// Undefined leaves the kit on its mainnet defaults, which move real money.
 const onrampServer = createOnrampServerKit({
-  apiKey: kitKey,
+  apiKey,
   baseUrl: API_BASE_URL,
   widgetBaseUrl: WIDGET_BASE_URL,
 });
 
-// Sessions are minted for the signed-in user's own wallet, looked up here
-// rather than accepted from the request body. The browser never gets to name
-// the destination address, so a session can only ever deliver funds to the
-// wallet the session belongs to.
+// The destination comes from the signed-in user's wallet, never from the request body.
 export async function POST() {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     const {
       data: { user },
@@ -91,9 +84,7 @@ export async function POST() {
     }
 
     const session = await onrampServer.createSession({
-      // Scoped to the same chain the escrow contract and the agent wallet live
-      // on. `assets` fields combine with AND, so this reads "USDC on Arc".
-      // Display scoping only — Circle's catalog stays the source of truth.
+      // Display scoping only (USDC on Arc); Circle's catalog stays the source of truth.
       assets: { tokens: ["USDC"], chains: ["arc"] },
       userId: user.id,
       destinationAddress: wallet.wallet_address,

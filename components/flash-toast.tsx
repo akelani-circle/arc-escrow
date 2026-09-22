@@ -16,19 +16,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const { CIRCLE_API_KEY, CIRCLE_ENTITY_SECRET } = process.env;
+"use client";
 
-if (!CIRCLE_API_KEY?.trim()) {
-  throw new Error("CIRCLE_API_KEY environment variable is missing or empty");
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { FLASH_COOKIE, type FlashMessage } from "@/lib/flash-message";
+
+// Guards against showing the same message twice, e.g. when effects run twice in development
+const shownIds = new Set<string>();
+
+export function FlashToast({ message }: { message: FlashMessage | null }) {
+  useEffect(() => {
+    if (!message || shownIds.has(message.id)) return;
+
+    shownIds.add(message.id);
+    document.cookie = `${FLASH_COOKIE}=; Max-Age=0; path=/`;
+
+    if (message.type === "error") {
+      toast.error(message.text);
+    } else {
+      toast.success(message.text);
+    }
+  }, [message]);
+
+  return null;
 }
-
-if (!CIRCLE_ENTITY_SECRET?.trim()) {
-  throw new Error("CIRCLE_ENTITY_SECRET environment variable is missing or empty");
-}
-
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  serverExternalPackages: ["pdf-parse"],
-};
-
-module.exports = nextConfig;

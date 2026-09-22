@@ -23,7 +23,6 @@ import path from 'path';
 
 config({ path: [".env.local"] })
 
-// Initialize Circle client
 const requiredEnvVars = ['CIRCLE_API_KEY', 'CIRCLE_ENTITY_SECRET'];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
@@ -37,7 +36,6 @@ export const circleDeveloperSdk = initiateDeveloperControlledWalletsClient({
   entitySecret: process.env.CIRCLE_ENTITY_SECRET,
 });
 
-// Makes the request to Circle's API to create the wallet
 try {
   const createdWalletSetResponse = await circleDeveloperSdk.createWalletSet({
     name: "Escrow Agent Wallet"
@@ -48,8 +46,7 @@ try {
 
   const createdWalletResponse = await circleDeveloperSdk.createWallets({
     accountType: "SCA",
-    // Kept in step with BLOCKCHAIN in lib/constants.ts. Plain node runs this
-    // file, so it cannot import the TypeScript constant.
+    // Keep in step with BLOCKCHAIN in lib/constants.ts; plain node cannot import it.
     blockchains: ["ARC-TESTNET"],
     walletSetId
   });
@@ -61,15 +58,12 @@ try {
 
   console.log(`Agent wallet created successfully. Address: ${createdWallet.address}, ID: ${createdWallet.id}`);
 
-  // Update environment variables in .env.local
   const envPath = path.resolve('.env.local');
   let envContent = fs.readFileSync(envPath, 'utf-8');
 
-  // Update the environment variables
   envContent = envContent.replace(/^NEXT_PUBLIC_AGENT_WALLET_ID=.*$/m, `NEXT_PUBLIC_AGENT_WALLET_ID=${createdWallet.id}`);
   envContent = envContent.replace(/^NEXT_PUBLIC_AGENT_WALLET_ADDRESS=.*$/m, `NEXT_PUBLIC_AGENT_WALLET_ADDRESS=${createdWallet.address}`);
 
-  // Write the updated content back to .env.local
   fs.writeFileSync(envPath, envContent);
   console.log('Environment variables updated successfully in .env.local');
 } catch (error) {

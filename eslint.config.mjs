@@ -16,19 +16,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-namespace NodeJS {
-  interface ProcessEnv {
-    NEXT_PUBLIC_SUPABASE_URL: string
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: string
-    SUPABASE_SECRET_KEY: string
-    NEXT_PUBLIC_AGENT_WALLET_ID: string
-    NEXT_PUBLIC_AGENT_WALLET_ADDRESS: string
-    CIRCLE_API_KEY: string
-    CIRCLE_ENTITY_SECRET: string
-    GOOGLE_CLIENT_ID: string
-    GOOGLE_CLIENT_SECRET: string
-    OPENAI_API_KEY: string
-    ONRAMP_API_BASE_URL: string
-    NEXT_PUBLIC_ONRAMP_WIDGET_BASE_URL: string
-  }
-}
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  globalIgnores([".next/", "next-env.d.ts"]),
+  {
+    rules: {
+      // Hooks that load data on mount trip this rule, so warn instead of failing.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+]);

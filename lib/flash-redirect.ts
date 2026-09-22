@@ -16,8 +16,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export let assistantId = ""; // set your assistant ID here
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { FLASH_COOKIE, createFlashMessage, flashCookieOptions } from "@/lib/flash-message";
 
-if (assistantId === "") {
-  assistantId = process.env.OPENAI_ASSISTANT_ID || "";
+// Redirects and shows the message there as a toast. Server actions only.
+export async function encodedRedirect(
+  type: "error" | "success",
+  path: string,
+  message: string
+): Promise<never> {
+  (await cookies()).set(FLASH_COOKIE, createFlashMessage(type, message), flashCookieOptions);
+  return redirect(path);
 }
