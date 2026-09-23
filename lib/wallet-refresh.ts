@@ -16,23 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * Client-side "this wallet just changed" signal.
- *
- * Circle's webhook is the real source of truth: it writes the new balance and
- * the transaction row, and Supabase Realtime carries both to every open tab. But
- * the webhook needs a public URL, so on a local machine without ngrok running it
- * never arrives — and the onramp popup is then the only thing that knows a
- * deposit happened.
- *
- * This is that fallback path. The popup dispatches on `window`; the balance and
- * the transactions table listen. Where the webhook does reach the app, both
- * paths land on the same figure, so a duplicate refresh is harmless.
- *
- * A window event rather than a callback because the balance renders in two
- * places (the dashboard card and the wallet dialog) and the transactions table
- * in a third, none of which share a parent with the button.
- */
+// Fallback "wallet changed" signal for runs Circle's webhook cannot reach. A window event, because the balance and the transactions table render in unrelated trees.
 export const WALLET_REFRESH_EVENT = "wallet:refresh";
 
 export function requestWalletRefresh() {

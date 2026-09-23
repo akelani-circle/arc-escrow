@@ -14,9 +14,7 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
--- handle_new_user only runs as the trigger on auth.users. Postgres checks
--- EXECUTE when the trigger is created, not when it fires, so nobody needs to
--- call it directly (advisor lints 0028 and 0029).
+-- handle_new_user only runs as the auth.users trigger, so nobody needs direct EXECUTE (lints 0028 and 0029).
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 
 -- Nothing looks wallets up by address (advisor lint 0005_unused_index).

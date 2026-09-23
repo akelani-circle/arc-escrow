@@ -16,13 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * Server-side half of the onramp environment switch.
- *
- * Do not import this from a client component: `ONRAMP_API_BASE_URL` has no
- * `NEXT_PUBLIC_` prefix, so in the browser it would read as undefined and
- * silently resolve to production. Route handlers and server components only.
- */
+// Server-side half of the onramp environment switch. Never import this from a client component.
 
 import {
   CLIENT_ENVIRONMENT,
@@ -43,10 +37,7 @@ export const ENVIRONMENT: OnrampEnvironment = resolveEnvironment(
   "ONRAMP_API_BASE_URL",
 );
 
-// An API key is bound to one environment, and a half-switched config fails
-// invisibly: the widget loads from one environment, the session was minted in
-// the other, and the two silently ignore each other's messages. Refusing to
-// start is louder than debugging that.
+// A half-switched config fails invisibly, so refuse to start instead.
 if (ENVIRONMENT !== CLIENT_ENVIRONMENT) {
   throw new Error(
     "Onramp environment mismatch: ONRAMP_API_BASE_URL resolves to " +

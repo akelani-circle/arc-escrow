@@ -15,13 +15,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Enable row level security on every public table (advisor lint 0013_rls_disabled_in_public).
---
--- Signed-in users reach these tables with the publishable key, so the policies below
--- scope them to their own profile, their own wallet, and the agreements they are a
--- party to. Writes that no user should be able to make directly (creating wallets,
--- updating balances, and applying Circle webhook results) go through the secret key,
--- which bypasses RLS.
 
+-- Users reach these tables with the publishable key, so the policies scope them to their own rows. Secret-key writes bypass RLS.
 -- Helpers live outside the exposed "public" schema so they can't be called over the API.
 -- SECURITY DEFINER lets policies look across tables without recursing into each other's RLS.
 CREATE SCHEMA IF NOT EXISTS private;
@@ -69,8 +64,7 @@ AS $$
     );
 $$;
 
--- An agreement's funding transaction is linked through escrow_agreements.transaction_id
--- rather than transactions.escrow_agreement_id, so it needs its own lookup.
+-- Agreements link their funding transaction through escrow_agreements.transaction_id, so this needs its own lookup.
 CREATE OR REPLACE FUNCTION private.is_agreement_transaction_party(p_transaction_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -89,9 +83,7 @@ $$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA private FROM PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA private TO authenticated;
 
--- Profiles: any signed-in user can see profiles (needed to pick a recipient and to show
--- the other party on an agreement). Users can only edit their own. Profiles are created
--- by the handle_new_user trigger.
+-- Profiles: any signed-in user can read them, only the owner can edit, and the handle_new_user trigger creates them.
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Authenticated users can view profiles"
@@ -105,8 +97,7 @@ TO authenticated
 USING (auth_user_id = (SELECT auth.uid()))
 WITH CHECK (auth_user_id = (SELECT auth.uid()));
 
--- Wallets: readable by signed-in users (recipient picker and agreement details).
--- Created and updated only with the secret key.
+-- Wallets: readable by signed-in users, created and updated only with the secret key.
 ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Authenticated users can view wallets"
@@ -114,8 +105,7 @@ ON public.wallets FOR SELECT
 TO authenticated
 USING (true);
 
--- Escrow agreements: visible to and editable by the depositor and the beneficiary.
--- Only the depositor can create or delete one.
+-- Escrow agreements: depositor and beneficiary can read and edit; only the depositor creates or deletes.
 ALTER TABLE public.escrow_agreements ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Parties can view their agreements"
@@ -148,8 +138,7 @@ ON public.escrow_agreements FOR DELETE
 TO authenticated
 USING (private.owns_wallet(depositor_wallet_id));
 
--- Transactions: users see their own, plus any transaction tied to an agreement they
--- are a party to. They can only write transactions on their own profile and wallet.
+-- Transactions: own rows, plus any tied to an agreement the user is a party to.
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own and agreement transactions"

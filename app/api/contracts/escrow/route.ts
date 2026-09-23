@@ -134,7 +134,6 @@ export async function POST(req: NextRequest) {
     }
     claimedAgreementId = agreement.id;
 
-    // Create contract execution transaction
     const createResponse = await circleContractSdk.deployContract({
       name: `Refund Protocol Escrow ${agreement.beneficiary_wallet.wallet_address}`,
       description: `Refund Protocol Escrow ${agreement.beneficiary_wallet.wallet_address}`,

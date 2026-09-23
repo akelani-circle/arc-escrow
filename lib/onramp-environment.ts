@@ -16,18 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * Which Circle environment the onramp talks to, and the one place that decides
- * it.
- *
- * The kit is configured by two independent URLs — the API base URL, used by the
- * server, and the widget origin, used by both halves — and falls back to its
- * production endpoints when either is unset. This app runs on Arc Testnet, so
- * sandbox is the pairing that matches; production would deliver real USDC to a
- * testnet address that cannot receive it.
- *
- * Safe to import from client components: it reads only `NEXT_PUBLIC_*`.
- */
+// The one place that decides which Circle environment the onramp talks to. Client-safe: reads NEXT_PUBLIC_* only.
 
 export type OnrampEnvironment = "production" | "sandbox";
 
@@ -36,20 +25,13 @@ export const PRODUCTION_WIDGET_BASE_URL = "https://onramp.arc.io";
 export const SANDBOX_API_BASE_URL = "https://api-test.circle.com";
 export const SANDBOX_WIDGET_BASE_URL = "https://onramp-sandbox.arc.io";
 
-/**
- * A variable that is unset, empty, or whitespace all mean the same thing to the
- * kit — use the built-in default — so they are collapsed to `undefined` here.
- */
+// Unset, empty and whitespace all mean "use the kit default", so collapse them to undefined.
 export function readUrl(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 }
 
-/**
- * The origin of a configured URL. The widget value is written both ways in the
- * wild — bare origin, and origin plus a launch path — so the comparison has to
- * ignore the path. The kit still receives the value verbatim.
- */
+// Compare origins only: the widget URL appears both bare and with a launch path.
 function originOf(url: string, name: string): string {
   try {
     return new URL(url).origin;
@@ -58,12 +40,7 @@ function originOf(url: string, name: string): string {
   }
 }
 
-/**
- * Production has to be named explicitly (or left unset, which is the kit's own
- * default). Anything else — sandbox, staging, a local proxy — is classified as
- * non-production, which is the safe direction to be wrong in: it keeps testnet
- * defaults away from mainnet rather than the reverse.
- */
+// Only an explicit production URL (or none at all) counts as production; everything else is treated as non-production.
 export function resolveEnvironment(
   url: string | undefined,
   productionUrl: string,
@@ -73,11 +50,7 @@ export function resolveEnvironment(
   return originOf(url, name) === productionUrl ? "production" : "sandbox";
 }
 
-/**
- * Read as this exact expression because Next inlines `NEXT_PUBLIC_*` at build
- * time: a dynamic lookup would come back undefined in the browser. `next dev`
- * only picks up a change on restart.
- */
+// Written as a literal expression because Next inlines NEXT_PUBLIC_* at build time.
 export const WIDGET_BASE_URL = readUrl(
   process.env.NEXT_PUBLIC_ONRAMP_WIDGET_BASE_URL,
 );

@@ -50,7 +50,6 @@ export async function POST(req: NextRequest) {
     if (!access.ok) return access.response;
     const { wallet: depositorWallet, agreement: contractTransaction } = access;
 
-    // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
       id: contractTransaction.circle_contract_id
     });

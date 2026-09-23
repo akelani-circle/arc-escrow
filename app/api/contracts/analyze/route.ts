@@ -25,7 +25,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { getAuthenticatedUser, unauthorized } from "@/lib/auth/session";
 import { FILE_CONSTANTS } from "@/lib/constants";
 
-// Configure accepted file types and their processors
 const FILE_PROCESSORS = {
   "application/pdf": async (buffer: Buffer) => {
     const parser = new PDFParse({ data: buffer });
@@ -98,7 +97,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if file type is supported
     if (!Object.hasOwn(FILE_PROCESSORS, file.type)) {
       return NextResponse.json(
         { error: "Unsupported file type. Please upload a PDF or DOCX file." },
@@ -106,11 +104,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Process file
     const buffer = Buffer.from(await file.arrayBuffer());
     const textContent = await FILE_PROCESSORS[file.type as FileType](buffer);
 
-    // Analyze with OpenAI
     let completion;
     try {
       completion = await openai.chat.completions.create({
@@ -134,7 +130,6 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error analyzing document:", error);
     
-    // Check if it's an OpenAI authentication error (might not have been caught above)
     const isAuthError = error instanceof Error && (
       error.message.includes("API key") || 
       error.message.includes("Incorrect API key") ||

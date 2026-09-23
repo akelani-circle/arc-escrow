@@ -28,17 +28,10 @@ export const FILE_CONSTANTS = {
 export const SYSTEM_AGENT_ADDRESS =
   "0x3d7ffed295e555052233544ba74eaa1c0920fa20";
 export const SYSTEM_AGENT_WALLET_ID = "109d08db-4460-59ca-8798-cc6064a310d5";
-/**
- * Arc is the only chain this app supports, so the chain and everything that
- * follows from it live here rather than in the environment. Circle's SDK
- * `Blockchain` union predates Arc, so call sites cast this value.
- */
+// Arc is the only supported chain. Circle's Blockchain union predates it, so call sites cast.
 export const BLOCKCHAIN = "ARC-TESTNET";
 
-/**
- * USDC on Arc is a predeploy at a fixed address, and it is also the native gas
- * token. Use this 6-decimal ERC-20 view for balances, transfers and approvals.
- */
+// USDC on Arc: fixed predeploy address, also the native gas token. 6 decimals.
 export const USDC_CONTRACT_ADDRESS =
   "0x3600000000000000000000000000000000000000";
 

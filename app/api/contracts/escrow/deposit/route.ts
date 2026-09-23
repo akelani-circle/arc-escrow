@@ -61,7 +61,6 @@ export async function POST(req: NextRequest) {
     if (!access.ok) return access.response;
     const { wallet: depositorWallet, agreement: contractTransaction } = access;
 
-    // Retrieves contract data from Circle's SDK
     const contractData = await circleContractSdk.getContract({
       id: contractTransaction.circle_contract_id
     });
@@ -77,7 +76,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not retrieve contract address" }, { status: 500 })
     }
 
-    // Convert USDC amount to contract format
     const contractAmount = Number(convertUSDCToContractAmount(contractTransaction.transactions.amount));
 
     const circleDepositResponse = await circleDeveloperSdk.createContractExecutionTransaction({

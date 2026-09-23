@@ -24,17 +24,14 @@ import { getUsdcBalance } from "@/lib/circle/wallet-data";
 async function updateAgreementTransaction(transactionId: string, notification: Record<string, unknown>) {
   const supabase = createSupabaseAdminClient();
 
-  // Fetch the current status in the database to check if the update is needed
   const { data: transactionToUpdate, error: transactionError } = await supabase
     .from("transactions")
     .select()
     .eq("circle_transaction_id", transactionId)
     .single();
 
-  // Exit if no update is needed
   if (transactionError || transactionToUpdate.status === notification.state) return;
 
-  // Perform the update only if the status has changed
   await supabase
     .from("transactions")
     .update({
@@ -67,7 +64,6 @@ async function updateAgreementTransaction(transactionId: string, notification: R
       return;
     }
 
-    // Exit if no update is needed
     if (agreement.status === "PENDING") return;
 
     await supabase
@@ -192,7 +188,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update or handle the contract deployment status in escrow_agreements
     await updateAgreementTransaction(transactionId, body.notification);
 
     return NextResponse.json({ received: true }, { status: 200 });
@@ -206,12 +201,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Handle HEAD requests to verify endpoint availability
 export async function HEAD() {
   return NextResponse.json({}, { status: 200 });
 }
 
-// Verify Circle's signature
 async function verifyCircleSignature(
   bodyString: string,
   signature: string,
@@ -223,12 +216,10 @@ async function verifyCircleSignature(
   verifier.update(bodyString);
   verifier.end();
 
-  // Convert the Buffer to a Uint8Array for compatibility
   const signatureUint8Array = Uint8Array.from(Buffer.from(signature, "base64"));
   return verifier.verify(publicKey, signatureUint8Array);
 }
 
-// Function to get Circle’s public key using their API
 async function getCirclePublicKey(keyId: string) {
   if (!process.env.CIRCLE_API_KEY) {
     throw new Error("Circle API key is not set");
@@ -250,7 +241,6 @@ async function getCirclePublicKey(keyId: string) {
     const data = await response.json();
     const rawPublicKey = data.data.publicKey;
 
-    // Convert the base64-encoded key to PEM format
     const pemPublicKey = `-----BEGIN PUBLIC KEY-----\n${rawPublicKey.match(/.{1,64}/g)?.join("\n")}\n-----END PUBLIC KEY-----`;
 
     return pemPublicKey;

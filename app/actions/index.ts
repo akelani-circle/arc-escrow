@@ -65,8 +65,7 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", "Could not create your account");
   }
 
-  // The profile update goes through the secret key, since the new user may
-  // not have a session until they confirm their email.
+  // Uses the secret key: a new user has no session until they confirm their email.
   const supabaseAdmin = createSupabaseAdminClient();
 
   try {
@@ -88,8 +87,7 @@ export const signUpAction = async (formData: FormData) => {
 
     await createUserWallet(profileData.id, email);
   } catch (error) {
-    // Roll back so the account isn't left behind without a wallet and the
-    // same email can be used to try again.
+    // Roll back so the email can be reused instead of stranding a walletless account.
     await supabase.auth.signOut();
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(newUser.id);
 

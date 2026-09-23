@@ -106,7 +106,6 @@ export const CreateAgreementPage = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Get current user
         const {
           data: { user },
           error: userError,
@@ -117,7 +116,6 @@ export const CreateAgreementPage = () => {
 
         setUserId(user.id);
 
-        // Get current user's profile with wallet
         const { data: currentProfile, error: profileError } = await supabase
           .from("profiles")
           .select(
@@ -139,7 +137,6 @@ export const CreateAgreementPage = () => {
         if (profileError) throw profileError;
         setCurrentUserProfile(currentProfile);
 
-        // Get all other profiles with their wallets
         const { data: beneficiaryProfiles, error: beneficiariesError } =
           await supabase
             .from("profiles")
@@ -164,7 +161,6 @@ export const CreateAgreementPage = () => {
           throw new Error("No beneficiary profiles found.");
         }
 
-        // Filter out profiles without wallets
         const validBeneficiaries = beneficiaryProfiles.filter(
           (profile) => profile.wallets && profile.wallets.length > 0
         );
