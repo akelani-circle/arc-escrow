@@ -90,6 +90,15 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 - Agent wallet automatically initialized via the `generate-wallet` script
 - Real-time UI updates powered by Supabase Realtime subscriptions
 
+> [!WARNING]
+> **The onramp defaults to sandbox, and leaving it that way is deliberate.**
+> `ONRAMP_API_BASE_URL` and `NEXT_PUBLIC_ONRAMP_WIDGET_BASE_URL` are set to
+> Circle's sandbox endpoints in `.env.example`. If either is unset, empty, or
+> removed, the app falls back to Circle's production endpoints on mainnet, where
+> **every purchase charges a real payment method** — and delivers to a chain the
+> Arc Testnet escrow wallet does not exist on. Setting only one of them is
+> refused at startup rather than run in a broken half-state.
+
 ## Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in the required values:
