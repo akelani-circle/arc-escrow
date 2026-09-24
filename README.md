@@ -1,4 +1,4 @@
-# Workflow Escrow Refund Protocol
+# Arc Escrow
 
 Automate escrow-backed freelance agreements with AI-powered work validation using USDC on Arc testnet. This sample application uses Next.js, Supabase, Circle Developer Controlled Wallets, and OpenAI to demonstrate an end-to-end escrow workflow — from contract creation and deposit, through AI-validated deliverable submission, to fund release or refund.
 
@@ -18,8 +18,7 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 
 - **Node.js v22+** — Install via [nvm](https://github.com/nvm-sh/nvm)
 - **Registry token** — `@crcl-main/onramp-kit` comes from Circle's private registry (see `.npmrc`). Export the token variable named there before `npm install`, or it fails with `E401`
-- **Supabase CLI** — Install via `npm install -g supabase` or see [Supabase CLI docs](https://supabase.com/docs/guides/cli/getting-started)
-- **Docker Desktop** (only if using the local Supabase path) — [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Docker Desktop** — Runs Supabase locally. [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - **[ngrok](https://ngrok.com/)** — For local webhook testing
 - Circle Developer Controlled Wallets **[API key](https://console.circle.com/signin)** and **[Entity Secret](https://developers.circle.com/wallets/dev-controlled/register-entity-secret)**
 - **[OpenAI API key](https://platform.openai.com/api-keys)** — Used for AI-powered work validation
@@ -29,8 +28,8 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 1. Clone the repository and install dependencies:
 
    ```bash
-   git clone git@github.com:akelani-circle/workflow-escrow-refund-protocol.git
-   cd workflow-escrow-refund-protocol
+   git clone git@github.com:akelani-circle/arc-escrow.git
+   cd arc-escrow
    npm install
    ```
 
@@ -50,12 +49,7 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 
    This creates a Circle developer-controlled wallet and writes the wallet ID and address into your `.env.local`.
 
-4. Set up the database — Choose one of the two paths below:
-
-   <details>
-   <summary><strong>Path 1: Local Supabase (Docker)</strong></summary>
-
-   Requires Docker Desktop installed and running.
+4. Start the local Supabase instance (requires Docker Desktop running):
 
    ```bash
    npx supabase start
@@ -63,22 +57,6 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
    ```
 
    The output of `npx supabase start` will display the Supabase URL and API keys needed for your `.env.local`.
-
-   </details>
-
-   <details>
-   <summary><strong>Path 2: Remote Supabase (Cloud)</strong></summary>
-
-   Requires a [Supabase](https://supabase.com/) account and project.
-
-   ```bash
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push
-   ```
-
-   Retrieve your project URL and API keys from the Supabase dashboard under **Settings → API**.
-
-   </details>
 
 5. Start the development server:
 
@@ -173,8 +151,7 @@ On first visit, sign up with any email and password. The first user created can 
 
 Supabase limits email signups to **2 per hour** by default (unless custom SMTP is configured). If you hit an "email rate limit exceeded" error during testing:
 
-- **Local Supabase (Docker):** Email verification is handled by the built-in [Inbucket](http://127.0.0.1:54324) mail server — check it to confirm signups. The rate limit can be adjusted in `supabase/config.toml` under `[auth.rate_limit]`.
-- **Remote Supabase (Cloud):** Use real email addresses (disposable emails may fail verification). If you hit the limit, you can manually add users via the Supabase dashboard under **Authentication → Users**.
+Email verification is handled by the built-in [Inbucket](http://127.0.0.1:54324) mail server — check it to confirm signups. The rate limit can be adjusted in `supabase/config.toml` under `[auth.rate_limit]`.
 
 ## Testing
 
