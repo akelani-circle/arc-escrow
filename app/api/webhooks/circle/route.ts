@@ -19,10 +19,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
-
-const baseUrl = process.env.VERCEL_URL
-  ? process.env.VERCEL_URL
-  : "http://localhost:3000";
+import { getUsdcBalance } from "@/lib/circle/wallet-data";
 
 async function updateAgreementTransaction(transactionId: string, notification: Record<string, unknown>) {
   const supabase = createSupabaseAdminClient();
@@ -88,9 +85,11 @@ async function updateAgreementTransaction(transactionId: string, notification: R
 
   if (transactionToUpdate.transaction_type === "DEPOSIT_REFUND") {
     if (notification.state === "FAILED") {
+      // A refund can only be requested while the funds are locked, and a failed one
+      // leaves them locked. Sending it back to OPEN would invite a second deposit.
       await supabase
         .from("escrow_agreements")
-        .update({ status: "OPEN" })
+        .update({ status: "LOCKED" })
         .eq("id", agreement.id);
     }
 
@@ -150,14 +149,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    // Circle signs the exact bytes it sent, so verify those, not a re-serialization.
+    const rawBody = await req.text();
 
-    const bodyString = JSON.stringify(body);
-
-    const isVerified = await verifyCircleSignature(bodyString, signature, keyId);
+    const isVerified = await verifyCircleSignature(rawBody, signature, keyId);
 
     if (!isVerified) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     console.log("Received notification:", body);
@@ -169,20 +174,18 @@ export async function POST(req: NextRequest) {
     } = body.notification;
 
     if (walletId && transactionState === "COMPLETE") {
-      const response = await fetch(`${baseUrl}/api/wallet/balance`, {
-        method: "POST",
-        body: JSON.stringify({ walletId }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Read the balance directly (a fetch to our own API would carry no session).
+      // A balance we cannot read must not stop the status update below.
+      try {
+        const balance = await getUsdcBalance(walletId);
 
-      const parsedResponse = await response.json()
-
-      await supabase
-        .from("wallets")
-        .update({ balance: parsedResponse.balance })
-        .eq("circle_wallet_id", walletId);
+        await supabase
+          .from("wallets")
+          .update({ balance })
+          .eq("circle_wallet_id", walletId);
+      } catch (balanceError) {
+        console.error(`Could not refresh the balance of wallet ${walletId}:`, balanceError);
+      }
     }
 
     await updateAgreementTransaction(transactionId, body.notification);

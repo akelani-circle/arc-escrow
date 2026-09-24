@@ -30,9 +30,6 @@ import { useEscrowAgreements } from "@/app/hooks/useEscrowAgreements";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import EscrowAgreementsTable from "@/components/agreements-table";
 
-const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-  ? process.env.NEXT_PUBLIC_VERCEL_URL
-  : "http://localhost:3000";
 
 const supabase = createSupabaseBrowserClient();
 
@@ -41,7 +38,7 @@ export const EscrowAgreements = (props: EscrowListProps) => {
 
   const depositFunds = async (agreement: EscrowAgreementWithDetails) => {
     try {
-      const response = await fetch(`${baseUrl}/api/contracts/escrow/deposit`, {
+      const response = await fetch(`/api/contracts/escrow/deposit`, {
         method: "POST",
         body: JSON.stringify({
           circleContractId: agreement.circle_contract_id

@@ -18,7 +18,6 @@
 
 import { getErrorMessage } from "@/lib/utils/utils";
 import type { Blockchain } from "@circle-fin/smart-contract-platform";
-import type { EscrowAgreementWithDetails } from "@/types/escrow";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 import { circleContractSdk } from "@/lib/utils/smart-contract-platform-client";
@@ -29,12 +28,20 @@ import {
   USDC_CONTRACT_ADDRESS,
 } from "@/lib/constants";
 import { circleDeveloperSdk } from "@/lib/utils/developer-controlled-wallets-client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import { authorizeAgreementAction, setAgreementStatus } from "@/lib/auth/agreement-access";
+import { getAuthenticatedUser, unauthorized } from "@/lib/auth/session";
+import { isTransactionVisibleTo } from "@/lib/circle/wallet-data";
 
+// Only `agreement.id` is used. Wallet addresses, amounts and the like are read from
+// the database, never trusted from the request.
 interface CreateEscrowRequest {
-  agreement: EscrowAgreementWithDetails;
-  agentAddress: string;
-  amountUSDC: number;
+  agreement?: { id?: string };
+  agentAddress?: string;
+  amountUSDC?: number;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Shape of errors thrown by the Circle SDK's HTTP client
 type HttpError = { response?: { status?: number; data?: unknown } };
@@ -78,37 +85,58 @@ async function waitForTransactionStatus(id: string) {
 }
 
 export async function POST(req: NextRequest) {
+  let claimedAgreementId: string | null = null;
+
   try {
     const supabase = await createSupabaseServerClient();
-    const body: CreateEscrowRequest = await req.json();
+    const body: CreateEscrowRequest = await req.json().catch(() => ({}));
 
-    if (
-      !body.agreement.depositor_wallet?.wallet_address ||
-      !body.agreement.beneficiary_wallet?.wallet_address ||
-      !body.agentAddress ||
-      !body.amountUSDC
-    ) {
+    if (!process.env.NEXT_PUBLIC_AGENT_WALLET_ID || !process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "The agent wallet is not configured" },
+        { status: 500 }
+      );
+    }
+
+    const agreementId = body.agreement?.id;
+    if (typeof agreementId !== "string" || !UUID.test(agreementId)) {
+      return NextResponse.json(
+        { error: "Missing required agreement id" },
         { status: 400 }
       );
     }
 
-    const addressRegex = /^0x[a-fA-F0-9]{40}$/;
-    if (
-      !addressRegex.test(body.agreement.depositor_wallet?.wallet_address) ||
-      !addressRegex.test(body.agreement.beneficiary_wallet?.wallet_address) ||
-      !addressRegex.test(body.agentAddress)
-    ) {
+    // Deploying spends the platform's agent wallet, so it must be the depositor of
+    // an agreement that has not been deployed yet.
+    const access = await authorizeAgreementAction<{
+      id: string;
+      transaction_id: string;
+      depositor_wallet: { wallet_address: string };
+      beneficiary_wallet: { wallet_address: string };
+    }>(supabase, {
+      by: { id: agreementId },
+      role: "depositor",
+      statuses: ["INITIATED"],
+      select: `*,
+        depositor_wallet:wallets!escrow_agreements_depositor_wallet_id_fkey (wallet_address),
+        beneficiary_wallet:wallets!escrow_agreements_beneficiary_wallet_id_fkey (wallet_address)`,
+    });
+    if (!access.ok) return access.response;
+    const agreement = access.agreement;
+
+    // Claim the agreement before deploying, atomically: two quick clicks (or two
+    // tabs) must not deploy two contracts and spend the agent wallet twice.
+    if (!(await setAgreementStatus(agreement.id, "PENDING", ["INITIATED"]))) {
       return NextResponse.json(
-        { error: "Invalid Ethereum address format" },
-        { status: 400 }
+        { error: "This agreement is already being deployed" },
+        { status: 409 }
       );
     }
+    claimedAgreementId = agreement.id;
 
     const createResponse = await circleContractSdk.deployContract({
-      name: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
-      description: `Refund Protocol Escrow ${body.agreement.beneficiary_wallet?.wallet_address}`,
+      name: `Refund Protocol Escrow ${agreement.beneficiary_wallet.wallet_address}`,
+      description: `Refund Protocol Escrow ${agreement.beneficiary_wallet.wallet_address}`,
       walletId: process.env.NEXT_PUBLIC_AGENT_WALLET_ID,
       blockchain: BLOCKCHAIN as Blockchain,
       fee: {
@@ -133,24 +161,23 @@ export async function POST(req: NextRequest) {
 
     console.log("Transaction created:", createResponse.data);
 
-    // Store circle_contract_id so the agreement can be found when funding it.
-    const { error: agreementError } = await supabase
+    // Record the Circle ids so the webhook can find the agreement and transaction
+    // later. Users cannot write these columns, so this uses the secret key.
+    const admin = createSupabaseAdminClient();
+
+    const { error: agreementError } = await admin
       .from("escrow_agreements")
-      .update({
-        circle_contract_id: createResponse.data.contractId,
-        status: "PENDING",
-      })
-      .eq("id", body.agreement.id);
+      .update({ circle_contract_id: createResponse.data.contractId })
+      .eq("id", agreement.id);
 
     if (agreementError) {
       throw new Error("Failed to update Circle contract ID")
     }
 
-    // Store circle_transaction_id so the transaction can be found and updated later.
-    const { error: transactionError } = await supabase
+    const { error: transactionError } = await admin
       .from("transactions")
       .update({ circle_transaction_id: createResponse.data.transactionId })
-      .eq("id", body.agreement.transaction_id);
+      .eq("id", agreement.transaction_id);
 
     if (transactionError) {
       throw new Error("Failed to update Circle transaction ID");
@@ -164,15 +191,21 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
         message: "Escrow contract creation initiated",
         addresses: {
-          depositor: body.agreement.depositor_wallet?.wallet_address,
-          beneficiary: body.agreement.beneficiary_wallet?.wallet_address,
-          agent: body.agentAddress,
+          depositor: agreement.depositor_wallet.wallet_address,
+          beneficiary: agreement.beneficiary_wallet.wallet_address,
+          agent: process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS,
         },
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creating escrow:", error);
+
+    // Nothing was deployed if we never got a contract id, so let them try again.
+    if (claimedAgreementId) {
+      await setAgreementStatus(claimedAgreementId, "INITIATED", ["PENDING"]);
+    }
+
     return NextResponse.json(
       {
         error: "Failed to create escrow contract",
@@ -185,13 +218,26 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
+    const user = await getAuthenticatedUser(supabase);
+    if (!user) return unauthorized();
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
-    if (!id) {
+    if (!id || !UUID.test(id)) {
       return NextResponse.json(
-        { error: "Transaction ID is required" },
+        { error: "A valid transaction ID is required" },
         { status: 400 }
+      );
+    }
+
+    // Only poll a transaction the caller can see; otherwise this is a free way to
+    // make the server hammer Circle for anyone.
+    if (!(await isTransactionVisibleTo(supabase, id))) {
+      return NextResponse.json(
+        { error: "Transaction not found" },
+        { status: 404 }
       );
     }
 
