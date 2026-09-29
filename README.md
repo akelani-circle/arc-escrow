@@ -17,7 +17,6 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 ## Prerequisites
 
 - **Node.js v22+** — Install via [nvm](https://github.com/nvm-sh/nvm)
-- **Private npm registry** — `@crcl-main/onramp-kit` comes from Circle's private registry. Add the registry and your token to your user-level `~/.npmrc` (not the repo), or `npm install` fails
 - **Docker Desktop** — Runs Supabase locally. [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - **[ngrok](https://ngrok.com/)** — For local webhook testing
 - Circle Developer Controlled Wallets **[API key](https://console.circle.com/signin)** and **[Entity Secret](https://developers.circle.com/wallets/dev-controlled/register-entity-secret)**
@@ -85,7 +84,7 @@ Automate escrow-backed freelance agreements with AI-powered work validation usin
 - Uses [Circle Developer Controlled Wallets](https://developers.circle.com/wallets/dev-controlled) for USDC escrow transactions on Arc testnet
 - Smart contracts (EIP-712 Refund Protocol) deployed and managed via `@circle-fin/smart-contract-platform`
 - [OpenAI](https://platform.openai.com/) validates submitted work deliverables against agreement criteria using vision models
-- **Add money** opens Circle's hosted onramp in a popup via Onramp Kit, scoped to USDC on Arc. The session is created server-side for the signed-in user's own wallet
+- **Add money** opens Circle's hosted onramp in a popup via [`@circle-fin/onramp-kit`](https://www.npmjs.com/package/@circle-fin/onramp-kit), scoped to USDC on Arc. The session is created server-side for the signed-in user's own wallet
 - Webhook signature verification ensures secure transaction notifications
 - Agent wallet automatically initialized via the `generate-wallet` script
 - Real-time UI updates powered by Supabase Realtime subscriptions

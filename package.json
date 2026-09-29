@@ -22,7 +22,7 @@
   "dependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.8.0",
     "@circle-fin/smart-contract-platform": "^10.8.0",
-    "@crcl-main/onramp-kit": "canary-feature-onramp-kit-sdk",
+    "@circle-fin/onramp-kit": "^1.0.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "class-variance-authority": "^0.7.1",
