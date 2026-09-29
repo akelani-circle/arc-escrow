@@ -168,4 +168,3 @@ CREATE TRIGGER enforce_storage_structure
     BEFORE INSERT ON storage.objects
     FOR EACH ROW
     EXECUTE FUNCTION storage_folder_structure();
-

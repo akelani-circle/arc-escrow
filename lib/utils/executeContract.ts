@@ -61,4 +61,3 @@ export const executeContract = async ({
     throw new Error(`Failed to execute contract: ${message}`);
   }
 };
-
