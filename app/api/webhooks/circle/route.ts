@@ -18,26 +18,20 @@
 
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import { getUsdcBalance } from "@/lib/circle/wallet-data";
 
-const baseUrl = process.env.VERCEL_URL
-  ? process.env.VERCEL_URL
-  : "http://localhost:3000";
+async function updateAgreementTransaction(transactionId: string, notification: Record<string, unknown>) {
+  const supabase = createSupabaseAdminClient();
 
-async function updateAgreementTransaction(transactionId: string, notification: Record<string, any>) {
-  const supabase = createSupabaseServerClient();
-
-  // Fetch the current status in the database to check if the update is needed
   const { data: transactionToUpdate, error: transactionError } = await supabase
     .from("transactions")
     .select()
     .eq("circle_transaction_id", transactionId)
     .single();
 
-  // Exit if no update is needed
   if (transactionError || transactionToUpdate.status === notification.state) return;
 
-  // Perform the update only if the status has changed
   await supabase
     .from("transactions")
     .update({
@@ -70,7 +64,6 @@ async function updateAgreementTransaction(transactionId: string, notification: R
       return;
     }
 
-    // Exit if no update is needed
     if (agreement.status === "PENDING") return;
 
     await supabase
@@ -92,9 +85,11 @@ async function updateAgreementTransaction(transactionId: string, notification: R
 
   if (transactionToUpdate.transaction_type === "DEPOSIT_REFUND") {
     if (notification.state === "FAILED") {
+      // A refund can only be requested while the funds are locked, and a failed one
+      // leaves them locked. Sending it back to OPEN would invite a second deposit.
       await supabase
         .from("escrow_agreements")
-        .update({ status: "OPEN" })
+        .update({ status: "LOCKED" })
         .eq("id", agreement.id);
     }
 
@@ -143,7 +138,7 @@ async function updateAgreementTransaction(transactionId: string, notification: R
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const signature = req.headers.get("x-circle-signature");
     const keyId = req.headers.get("x-circle-key-id");
 
@@ -154,15 +149,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-
-    // Convert to a string for signature verification
-    const bodyString = JSON.stringify(body);
-
-    const isVerified = await verifyCircleSignature(bodyString, signature, keyId);
-
-    if (!isVerified) {
+    // Circle key ids are UUIDs; anything else never reaches the outbound key lookup.
+    if (!KEY_ID_PATTERN.test(keyId)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+
+    let publicKey: crypto.KeyObject;
+    try {
+      publicKey = await getCirclePublicKey(keyId);
+    } catch (error) {
+      // Our failure to fetch the key, not a bad signature: answer retryably so Circle redelivers.
+      console.error("Could not load Circle public key:", error);
+      return NextResponse.json(
+        { error: "Signature key temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+
+    // Circle signs the exact bytes it sent, so verify those, not a re-serialization.
+    const rawBody = await req.text();
+
+    if (!verifyCircleSignature(rawBody, signature, publicKey)) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     console.log("Received notification:", body);
@@ -174,86 +189,102 @@ export async function POST(req: NextRequest) {
     } = body.notification;
 
     if (walletId && transactionState === "COMPLETE") {
-      const response = await fetch(`${baseUrl}/api/wallet/balance`, {
-        method: "POST",
-        body: JSON.stringify({ walletId }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Read the balance directly (a fetch to our own API would carry no session).
+      // A balance we cannot read must not stop the status update below.
+      try {
+        const balance = await getUsdcBalance(walletId);
 
-      const parsedResponse = await response.json()
-
-      await supabase
-        .from("wallets")
-        .update({ balance: parsedResponse.balance })
-        .eq("circle_wallet_id", walletId);
+        await supabase
+          .from("wallets")
+          .update({ balance })
+          .eq("circle_wallet_id", walletId);
+      } catch (balanceError) {
+        console.error(`Could not refresh the balance of wallet ${walletId}:`, balanceError);
+      }
     }
 
-    // Update or handle the contract deployment status in escrow_agreements
     await updateAgreementTransaction(transactionId, body.notification);
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    console.log("Failed to process notification:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to process notification:", error);
     return NextResponse.json(
-      { error: `Failed to process notification: ${message}` },
+      { error: "Failed to process notification" },
       { status: 500 }
     );
   }
 }
 
-// Handle HEAD requests to verify endpoint availability
 export async function HEAD() {
   return NextResponse.json({}, { status: 200 });
 }
 
-// Verify Circle's signature
-async function verifyCircleSignature(
+function verifyCircleSignature(
   bodyString: string,
   signature: string,
-  keyId: string
-): Promise<boolean> {
-  const publicKey = await getCirclePublicKey(keyId);
+  publicKey: crypto.KeyObject
+): boolean {
+  try {
+    const verifier = crypto.createVerify("SHA256");
+    verifier.update(bodyString);
+    verifier.end();
 
-  const verifier = crypto.createVerify("SHA256");
-  verifier.update(bodyString);
-  verifier.end();
-
-  // Convert the Buffer to a Uint8Array for compatibility
-  const signatureUint8Array = Uint8Array.from(Buffer.from(signature, "base64"));
-  return verifier.verify(publicKey, signatureUint8Array);
+    const signatureUint8Array = Uint8Array.from(Buffer.from(signature, "base64"));
+    return verifier.verify(publicKey, signatureUint8Array);
+  } catch (error) {
+    console.error("Signature verification error:", error);
+    return false;
+  }
 }
 
-// Function to get Circle’s public key using their API
-async function getCirclePublicKey(keyId: string) {
+const KEY_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A key id always maps to the same public key (per Circle's docs), so cache for the process lifetime.
+// Caching the in-flight promise makes concurrent cold requests share one fetch.
+const publicKeyCache = new Map<string, Promise<crypto.KeyObject>>();
+
+function getCirclePublicKey(keyId: string): Promise<crypto.KeyObject> {
+  const cacheKey = keyId.toLowerCase();
+  const cached = publicKeyCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const lookup = fetchCirclePublicKey(cacheKey);
+  publicKeyCache.set(cacheKey, lookup);
+  // A failed lookup must not stick: drop it so the next delivery retries.
+  lookup.catch(() => publicKeyCache.delete(cacheKey));
+  return lookup;
+}
+
+async function fetchCirclePublicKey(keyId: string): Promise<crypto.KeyObject> {
   if (!process.env.CIRCLE_API_KEY) {
     throw new Error("Circle API key is not set");
   }
 
-  try {
-    const response = await fetch(`https://api.circle.com/v2/notifications/publicKey/${keyId}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${process.env.CIRCLE_API_KEY}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch public key: ${response.statusText}`);
+  const response = await fetch(`https://api.circle.com/v2/notifications/publicKey/${keyId}`, {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Authorization": `Bearer ${process.env.CIRCLE_API_KEY}`
     }
+  });
 
-    const data = await response.json();
-    const rawPublicKey = data.data.publicKey;
-
-    // Convert the base64-encoded key to PEM format
-    const pemPublicKey = `-----BEGIN PUBLIC KEY-----\n${rawPublicKey.match(/.{1,64}/g)?.join("\n")}\n-----END PUBLIC KEY-----`;
-
-    return pemPublicKey;
-  } catch (error) {
-    console.error("Error fetching Circle public key:", error);
-    throw new Error("Failed to retrieve Circle public key");
+  if (!response.ok) {
+    throw new Error(`Failed to fetch public key: ${response.status} ${response.statusText}`);
   }
+
+  const data = await response.json();
+  const rawPublicKey = data?.data?.publicKey;
+  if (typeof rawPublicKey !== "string" || rawPublicKey.length === 0) {
+    throw new Error("Malformed public key response from Circle");
+  }
+
+  // Throws on anything that is not a valid DER public key, so a bad response is never cached.
+  return crypto.createPublicKey({
+    key: Buffer.from(rawPublicKey, "base64"),
+    format: "der",
+    type: "spki",
+  });
 }
