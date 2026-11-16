@@ -32,6 +32,13 @@ describe("parseAmount", () => {
     expect(parseAmount("1,500.00 usd")).toBe(1500);
   });
 
+  it.each(["500 EUR", "EURC 500", "€500", "1.500,00 €", "£20"])(
+    "rejects the non-dollar amount %j instead of paying it as USDC",
+    (input) => {
+      expect(() => parseAmount(input)).toThrow(/Invalid amount/);
+    }
+  );
+
   it.each(["10abc", "1e5", "0x10", "Infinity", "1.2.3", ".5", "5.", "", "0.0000004", "1.0000005", "USDC"])(
     "rejects the malformed amount %j instead of reading a numeric prefix",
     (input) => {

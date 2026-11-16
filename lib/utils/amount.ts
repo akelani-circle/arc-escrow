@@ -17,10 +17,16 @@
  */
 
 export const parseAmount = (amountStr: string): number => {
+  // Escrow pays in USDC, so a euro or pound amount must not be read as the
+  // same number of dollars.
+  if (/[€£]|\bEURC?\b/i.test(amountStr)) {
+    throw new Error(`Invalid amount: ${amountStr}`);
+  }
+
   const cleanAmount = amountStr
-    .replace(/\b(?:USDC|USD|EURC|EUR)\b/gi, "")
+    .replace(/\b(?:USDC|USD)\b/gi, "")
     .replace(/[()]/g, "")
-    .replace(/[$€£,\s]/g, "")
+    .replace(/[$,\s]/g, "")
     .replace(/−/g, "-");
 
   // The cleaned string must be a plain decimal in its entirety, with at most
